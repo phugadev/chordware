@@ -41,6 +41,8 @@ public final class LiveSession {
     public let midiOut = MIDIOutputEngine()
     public let audioIn = AudioInputEngine()
     public let synth = PreviewSynth()
+    /// Always capturing, so a good idea found by accident is not lost.
+    public let recorder = PerformanceRecorder()
 
     public var onUpdate: ((Update) -> Void)?
     public var onError: ((Error) -> Void)?
@@ -85,15 +87,19 @@ public final class LiveSession {
         // Passthrough first, so the DAW's timing does not wait on analysis.
         midiOut.forward(message)
 
+        let now = Date().timeIntervalSince(started)
         var changed = false
         switch message {
-        case .noteOn(let note, let velocity, _):
+        case .noteOn(let note, let velocity, let channel):
+            recorder.noteOn(note, velocity: velocity, channel: channel, at: now)
             changed = held.noteOn(note, velocity: velocity)
-        case .noteOff(let note, _):
+        case .noteOff(let note, let channel):
+            recorder.noteOff(note, channel: channel, at: now)
             changed = held.noteOff(note)
         case .sustain(let down, _):
             changed = held.setSustain(down)
         case .allNotesOff:
+            recorder.closeOpenNotes(at: now)
             changed = held.allNotesOff()
         }
         guard changed, source == .midi else { return }
@@ -204,6 +210,13 @@ public final class LiveSession {
             sustainDown: held.sustainDown,
             timeMs: nowMs
         ))
+    }
+
+    /// A Standard MIDI File of everything played so far.
+    public func performanceData() -> Data? {
+        recorder.closeOpenNotes(at: Date().timeIntervalSince(started))
+        guard !recorder.isEmpty else { return nil }
+        return recorder.makeFile()
     }
 
     /// Release everything, everywhere. The standard escape hatch for a stuck

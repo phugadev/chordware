@@ -12,6 +12,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         public var toggleAlwaysOnTop: () -> Void
         public var setDisplayMode: (DisplayMode) -> Void
         public var setKey: (Key?) -> Void
+        public var exportPerformance: () -> Void
+        public var clearPerformance: () -> Void
         public var chooseMIDI: () -> Void
         public var chooseAudio: () -> Void
         public var togglePassthrough: () -> Void
@@ -25,6 +27,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
                     toggleAlwaysOnTop: @escaping () -> Void,
                     setDisplayMode: @escaping (DisplayMode) -> Void,
                     setKey: @escaping (Key?) -> Void,
+                    exportPerformance: @escaping () -> Void,
+                    clearPerformance: @escaping () -> Void,
                     chooseMIDI: @escaping () -> Void,
                     chooseAudio: @escaping () -> Void,
                     togglePassthrough: @escaping () -> Void,
@@ -37,6 +41,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
             self.setDisplayMode = setDisplayMode
             self.setKey = setKey
+            self.exportPerformance = exportPerformance
+            self.clearPerformance = clearPerformance
             self.chooseMIDI = chooseMIDI
             self.chooseAudio = chooseAudio
             self.togglePassthrough = togglePassthrough
@@ -55,6 +61,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentPassthrough: () -> Bool = { false }
     public var currentDisplayMode: () -> DisplayMode = { .companion }
     public var currentLockedKey: () -> Key? = { nil }
+    /// How many notes are waiting to be exported, for the menu title.
+    public var currentPerformanceCount: () -> Int = { 0 }
     public var currentNaming: () -> NoteNaming = { .letters }
     public var currentRoleColors: () -> Bool = { true }
 
@@ -79,6 +87,11 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     public func menuWillOpen(_ menu: NSMenu) { rebuild(menu) }
+
+    /// Items are enabled explicitly rather than by a responder chain, since a
+    /// status-bar menu has none.
+    public func menu(_ menu: NSMenu, update item: NSMenuItem,
+                     at index: Int, shouldCancel: Bool) -> Bool { true }
 
     private func rebuild(_ menu: NSMenu) {
         menu.removeAllItems()
@@ -179,6 +192,19 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         passthrough.toolTip = "Only turn this on if your DAW listens to Chordware "
             + "instead of your keyboard, or you will hear every note twice."
         menu.addItem(passthrough)
+        menu.addItem(.separator())
+
+        let captured = currentPerformanceCount()
+        let export = NSMenuItem(
+            title: captured > 0 ? "Save Performance as MIDI\u{2026} (\(captured) notes)"
+                                : "Save Performance as MIDI\u{2026}",
+            action: #selector(fire(_:)), keyEquivalent: "s")
+        export.target = self
+        export.isEnabled = captured > 0
+        export.representedObject = Box { [weak self] in self?.actions.exportPerformance() }
+        export.toolTip = "Everything played since Chordware started, as a .mid file."
+        menu.addItem(export)
+        add(menu, "Clear Performance", key: "") { [weak self] in self?.actions.clearPerformance() }
         menu.addItem(.separator())
 
         add(menu, "Clear Progression", key: "k") { [weak self] in self?.actions.resetProgression() }

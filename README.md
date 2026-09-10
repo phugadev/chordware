@@ -104,6 +104,22 @@ it and how big the window is, never in how the instrument is drawn.
 
 `Control-Option-Command-P` switches between them.
 
+## Saving what you played
+
+Chordware records every note you play, from launch, without being asked. There
+is no record button, deliberately: the case this exists for is finding
+something good *without meaning to* — sitting at the keyboard with no DAW open
+— and a button you have to press first is exactly the one you will not have
+pressed.
+
+**menu bar > Save Performance as MIDI…** writes it as a standard `.mid` file
+that any DAW will open, with the note count shown so you know there is
+something there. **Clear Performance** starts over. The buffer is bounded, so
+leaving Chordware running all day is safe.
+
+This does not try to replace your DAW's recording. It is for the times the DAW
+is not open.
+
 ## Spelling, and the key
 
 Nothing about accidentals is hardcoded. A note is spelled by the chord it
@@ -140,6 +156,7 @@ notch where it cannot be clicked, so there is a global shortcut too:
 |---|---|
 | `Control-Option-Command-C` | show or hide the window |
 | `Control-Option-Command-P` | switch between companion and presentation |
+| `Command-S` (menu open) | save the performance as MIDI |
 | menu bar > Quit | or `Command-Q` from the menu |
 
 ## Passthrough, and why it is off
@@ -214,8 +231,9 @@ run, including the expansion frozen part-way open.
 Working: the island, MIDI in, virtual MIDI out with passthrough, audio chord
 detection, key and Roman numeral analysis, progression capture, the CLI.
 
-Not yet: the reharmonisation and next-chord engines behind the island's `Next`
-and `Reharm` tabs, MIDI export, the local HTTP API, and the settings window.
+Not yet: the next-chord engine behind the island's `Next` tab, the local HTTP
+API, and a settings window. Reharmonisation is deliberately out of scope — it
+serves composing rather than seeing what you play.
 
 ## Licence
 

@@ -1,5 +1,6 @@
 import AppKit
 import Carbon.HIToolbox
+import UniformTypeIdentifiers
 import ChordwareCore
 import ChordwareEngine
 import ChordwareIsland
@@ -98,6 +99,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.bridge?.session.lockedKey = key
                 self?.model.lockedKey = key
             },
+            exportPerformance: { [weak self] in self?.exportPerformance() },
+            clearPerformance: { [weak self] in self?.bridge?.session.recorder.clear() },
             chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
             chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
             togglePassthrough: { [weak self] in
@@ -122,6 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.currentPassthrough = { [weak self] in self?.bridge?.session.midiOut.passthrough ?? false }
         menuBar.currentDisplayMode = { [weak self] in self?.model.displayMode ?? .companion }
         menuBar.currentLockedKey = { [weak self] in self?.model.lockedKey }
+        menuBar.currentPerformanceCount = { [weak self] in self?.bridge?.session.recorder.count ?? 0 }
         menuBar.currentNaming = { [weak self] in self?.model.naming ?? .letters }
         menuBar.currentRoleColors = { [weak self] in self?.model.roleColors ?? true }
         menuBar.currentChordSummary = { [weak self] in
@@ -217,6 +221,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
                 controller.pinState(self.model.state)
             }
+        }
+    }
+
+    /// Write everything played so far to a file the player chooses.
+    private func exportPerformance() {
+        guard let data = bridge?.session.performanceData() else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.midi]
+        let stamp = ISO8601DateFormatter()
+        stamp.formatOptions = [.withFullDate, .withTime, .withColonSeparatorInTime]
+        panel.nameFieldStringValue = "Chordware \(stamp.string(from: Date()).replacingOccurrences(of: ":", with: "."))"
+        panel.title = "Save Performance"
+        // The app has no Dock icon, so the panel needs bringing forward itself.
+        NSApp.activate(ignoringOtherApps: true)
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try data.write(to: url)
+        } catch {
+            NSAlert(error: error).runModal()
         }
     }
 

@@ -21,6 +21,7 @@ func runAll() {
     runPianoTests(t)
     runKeyboardRangeTests(t)
     runSignalTests(t)
+    runMIDIFileTests(t)
 
     t.summarize()
 }
