@@ -7,12 +7,21 @@ public struct IslandRootView: View {
     @Bindable public var model: IslandModel
     public let geometry: ScreenGeometry
     public var onStateChange: ((IslandState) -> Void)?
+    /// Freezes the reveal part-way, for reviewing what the transition looks
+    /// like mid-flight. Nil in normal use.
+    public var detailHeightOverride: CGFloat?
 
     public init(model: IslandModel, geometry: ScreenGeometry,
-                onStateChange: ((IslandState) -> Void)? = nil) {
+                onStateChange: ((IslandState) -> Void)? = nil,
+                detailHeightOverride: CGFloat? = nil) {
         self.model = model
         self.geometry = geometry
         self.onStateChange = onStateChange
+        self.detailHeightOverride = detailHeightOverride
+    }
+
+    private var revealedHeight: CGFloat {
+        detailHeightOverride ?? Self.detailHeight(for: model.state)
     }
 
     private var notchWidth: CGFloat { geometry.notchWidth }
@@ -20,6 +29,20 @@ public struct IslandRootView: View {
 
     /// Side panel width in the collapsed states, either side of the notch.
     private static let glanceSide: CGFloat = 132
+    /// Fixed heights for the two halves of the detail area. The container's
+    /// height animates between multiples of these and clips, which is what
+    /// makes the panel appear to grow rather than fade in.
+    public static let expandedDetailHeight: CGFloat = 164
+    public static let actDetailHeight: CGFloat = 172
+
+    /// How much of the detail stack is currently revealed.
+    public static func detailHeight(for state: IslandState) -> CGFloat {
+        switch state {
+        case .idle, .glance, .toast: return 0
+        case .expanded: return expandedDetailHeight
+        case .act: return expandedDetailHeight + actDetailHeight
+        }
+    }
 
     public var size: CGSize { Self.size(for: model.state, geometry: geometry) }
 
@@ -33,18 +56,21 @@ public struct IslandRootView: View {
         case .glance:
             return CGSize(width: notchWidth + Self.glanceSide * 2, height: notchHeight)
         case .toast:
-            return CGSize(width: notchWidth + 300, height: notchHeight)
+            return CGSize(width: notchWidth + 360, height: notchHeight)
         case .expanded:
-            return CGSize(width: max(468, notchWidth + 260), height: notchHeight + 164)
+            return CGSize(width: max(468, notchWidth + 260),
+                          height: notchHeight + detailHeight(for: state))
         case .act:
-            return CGSize(width: max(532, notchWidth + 320), height: notchHeight + 194)
+            return CGSize(width: max(532, notchWidth + 320),
+                          height: notchHeight + detailHeight(for: state))
         }
     }
 
     public var body: some View {
         VStack(spacing: 0) {
             content
-                .frame(width: size.width, height: size.height)
+                .frame(width: size.width,
+                       height: geometry.notchHeight + revealedHeight)
                 .background(shape.fill(IslandTheme.background))
                 .clipShape(shape)
                 .overlay(
@@ -72,41 +98,52 @@ public struct IslandRootView: View {
             : AnyShape(PillShape(cornerRadius: model.state == .idle ? 10 : 20))
     }
 
-    @ViewBuilder
+    /// One persistent view tree for every state.
+    ///
+    /// Building a different tree per state — the obvious `switch` — gives each
+    /// state a distinct view identity, so SwiftUI cross-fades between them and
+    /// the panel appears to dissolve into place rather than open. Keeping the
+    /// strip and the detail stack alive at all times and animating the clip
+    /// height instead means the panel is physically revealed from under the
+    /// notch, and the chord symbol in the strip never blinks.
     private var content: some View {
-        switch model.state {
-        case .idle:
-            Color.clear
-        case .glance:
-            NotchStrip(notchWidth: notchWidth, height: notchHeight) {
-                GlanceLeft(model: model)
+        VStack(spacing: 0) {
+            NotchStrip(notchWidth: notchWidth, totalWidth: size.width, height: notchHeight) {
+                stripLeading
             } trailing: {
-                GlanceRight(model: model)
+                stripTrailing
             }
-        case .toast(let toast):
-            NotchStrip(notchWidth: notchWidth, height: notchHeight) {
-                ToastLeading(toast: toast)
-            } trailing: {
-                ToastTrailing(toast: toast)
-            }
-        case .expanded:
+
             VStack(spacing: 0) {
-                NotchStrip(notchWidth: notchWidth, height: notchHeight) {
-                    GlanceLeft(model: model)
-                } trailing: {
-                    GlanceRight(model: model)
-                }
                 ExpandedDetail(model: model)
-            }
-        case .act:
-            VStack(spacing: 0) {
-                NotchStrip(notchWidth: notchWidth, height: notchHeight) {
-                    GlanceLeft(model: model)
-                } trailing: {
-                    GlanceRight(model: model)
-                }
+                    .frame(height: Self.expandedDetailHeight, alignment: .top)
                 ActDetail(model: model)
+                    .frame(height: Self.actDetailHeight, alignment: .top)
+                    // Rows below the clip must not take clicks meant for the
+                    // apps behind the island.
+                    .allowsHitTesting(model.state == .act)
+                Spacer(minLength: 0)
             }
+            .frame(height: revealedHeight, alignment: .top)
+            .clipped()
+        }
+    }
+
+    @ViewBuilder
+    private var stripLeading: some View {
+        switch model.state {
+        case .idle: Color.clear
+        case .toast(let toast): ToastLeading(toast: toast)
+        default: GlanceLeft(model: model)
+        }
+    }
+
+    @ViewBuilder
+    private var stripTrailing: some View {
+        switch model.state {
+        case .idle: Color.clear
+        case .toast(let toast): ToastTrailing(toast: toast)
+        default: GlanceRight(model: model)
         }
     }
 }
@@ -117,19 +154,27 @@ public struct IslandRootView: View {
 /// expanded panel still has the notch cut out of its first ~32 points.
 struct NotchStrip<Leading: View, Trailing: View>: View {
     let notchWidth: CGFloat
+    let totalWidth: CGFloat
     let height: CGFloat
     @ViewBuilder var leading: Leading
     @ViewBuilder var trailing: Trailing
 
+    /// Each side gets a concrete width rather than `maxWidth: .infinity`.
+    /// A flexible frame lets a long label — "backdoor (bVII7-I)" — push past
+    /// the island's edge instead of truncating inside it.
+    private var sideWidth: CGFloat { max(0, (totalWidth - notchWidth) / 2) }
+
     var body: some View {
         HStack(spacing: 0) {
             leading
-                .frame(maxWidth: .infinity, alignment: .trailing)
                 .padding(.trailing, 12)
+                .frame(width: sideWidth, alignment: .trailing)
+                .clipped()
             Color.clear.frame(width: notchWidth)
             trailing
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.leading, 12)
+                .frame(width: sideWidth, alignment: .leading)
+                .clipped()
         }
         .frame(height: height)
     }
@@ -144,7 +189,8 @@ struct GlanceLeft: View {
                 .font(IslandTheme.chordFont(16))
                 .foregroundStyle(IslandTheme.primary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.65)
+                .truncationMode(.tail)
                 .contentTransition(.numericText())
         } else {
             Text(model.inputLabel)
@@ -165,6 +211,8 @@ struct GlanceRight: View {
                     .font(IslandTheme.labelFont(12))
                     .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .layoutPriority(1)
             }
             if let key = model.key {
                 if model.romanNumeral != nil {
@@ -190,6 +238,8 @@ struct ToastLeading: View {
                 .font(IslandTheme.chordFont(13))
                 .foregroundStyle(IslandTheme.primary)
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .truncationMode(.tail)
         }
     }
 }

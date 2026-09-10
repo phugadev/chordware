@@ -7,3 +7,4 @@ Chordware.app/
 *.dmg
 Resources/Chordware.icns
 Resources/Chordware.iconset/
+*.o

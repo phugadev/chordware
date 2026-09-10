@@ -11,20 +11,29 @@ public struct MiniPiano: View {
     public var lowNote: Int
     public var octaves: Int
 
-    /// Range defaults to whatever covers the held notes. A fixed two octaves
-    /// silently drops anything above it, which hides exactly the extensions
-    /// that make a voicing interesting.
+    /// C2 to C6, which covers where chords are actually voiced.
+    private static let defaultLow = 36
+    private static let defaultHigh = 84
+
+    /// The range is fixed by default, and only stretches for notes that fall
+    /// outside it.
+    ///
+    /// Sizing it to each voicing instead looks reasonable in a still frame and
+    /// is horrible in motion: every chord change resizes and shifts the whole
+    /// keyboard, so the eye has to re-find middle C constantly. A stable
+    /// keyboard means a held note stays in the same place, which is the only
+    /// way the highlighting reads as "these are the keys under your hands".
     public init(heldNotes: [Int], scaleNotes: Set<PitchClass> = [],
                 lowNote: Int? = nil, octaves: Int? = nil) {
         self.heldNotes = heldNotes
         self.scaleNotes = scaleNotes
 
-        let lowest = heldNotes.min() ?? 48
-        let highest = heldNotes.max() ?? 71
+        let lowest = min(heldNotes.min() ?? Self.defaultLow, Self.defaultLow)
+        let highest = max(heldNotes.max() ?? Self.defaultHigh, Self.defaultHigh)
         let floorC = (lowest / 12) * 12
-        let ceilC = ((highest / 12) + 1) * 12
+        let ceilC = ((highest + 11) / 12) * 12
         self.lowNote = lowNote ?? floorC
-        self.octaves = octaves ?? min(5, max(2, (ceilC - floorC) / 12))
+        self.octaves = octaves ?? max(1, (ceilC - floorC) / 12)
     }
 
     private static let whiteOffsets = [0, 2, 4, 5, 7, 9, 11]

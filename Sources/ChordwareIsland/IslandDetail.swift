@@ -35,6 +35,7 @@ struct ExpandedDetail: View {
 
             Spacer(minLength: 0)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 12)

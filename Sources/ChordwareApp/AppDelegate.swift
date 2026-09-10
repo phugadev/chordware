@@ -43,7 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // how the layout is reviewed without a live window.
         if let index = arguments.firstIndex(of: "--render"), index + 1 < arguments.count {
             let directory = URL(fileURLWithPath: arguments[index + 1])
-            let geometry = ScreenGeometry.main
+            let geometry = ScreenGeometry.preferred
                 ?? ScreenGeometry(notchWidth: 200, notchHeight: 32, isPhysical: false,
                                   screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982))
             do {
@@ -58,7 +58,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // `--virtual-notch` forces the fallback pill so the non-notched layout
         // can be checked on a machine that has a notch.
-        var geometry = ScreenGeometry.main
+        var geometry = arguments.contains("--screen-main")
+            ? ScreenGeometry.main : ScreenGeometry.preferred
         if arguments.contains("--virtual-notch"), let real = geometry {
             geometry = ScreenGeometry(
                 notchWidth: ScreenGeometry.virtualNotchSize.width,
@@ -85,6 +86,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let driver = DemoDriver(model: model, controller: controller)
             driver.start(stepping: arguments.contains("--step"))
             demo = driver
+        }
+
+        // `--animate` walks the states on a timer with the real spring, so the
+        // transition can be captured frame by frame without synthesising
+        // pointer events (which needs an accessibility permission the app
+        // itself does not require).
+        if arguments.contains("--animate") {
+            Task { @MainActor in
+                let walk: [IslandState] = [.glance, .expanded, .act, .expanded, .glance]
+                while !Task.isCancelled {
+                    for state in walk {
+                        controller.pinState(state)
+                        try? await Task.sleep(for: .milliseconds(1400))
+                    }
+                }
+            }
         }
 
         // `--state <name>` pins the island open so a given state can be

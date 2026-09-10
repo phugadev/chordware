@@ -48,6 +48,27 @@ func runIslandTests(_ t: Harness) {
             }
         }
 
+        t.test("the detail reveal is monotonic and drives the panel height") {
+            let g = ScreenGeometry(notchWidth: 185, notchHeight: 32,
+                                   isPhysical: true, screenFrame: screen)
+            let collapsed = IslandRootView.detailHeight(for: .glance)
+            let expanded = IslandRootView.detailHeight(for: .expanded)
+            let act = IslandRootView.detailHeight(for: .act)
+
+            t.equal(collapsed, 0, "nothing revealed while collapsed")
+            t.check(expanded > collapsed, "expanding reveals detail")
+            t.check(act > expanded, "acting reveals more, it does not swap")
+
+            // Panel height must be exactly the notch strip plus what is
+            // revealed; if these drift apart the clip and the shape disagree
+            // and the panel starts cross-fading again.
+            for state in [IslandState.glance, .expanded, .act] {
+                t.equal(IslandRootView.size(for: state, geometry: g).height,
+                        g.notchHeight + IslandRootView.detailHeight(for: state),
+                        "height matches reveal for \(state)")
+            }
+        }
+
         t.test("the notch shape stays inside its bounds at any size") {
             // The shape mixes convex and concave corners, so a bad radius clamp
             // shows up as a path that escapes its own rect.

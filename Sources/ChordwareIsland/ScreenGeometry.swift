@@ -52,6 +52,25 @@ public struct ScreenGeometry: Equatable, Sendable {
         NSScreen.main.map(ScreenGeometry.init(screen:))
     }
 
+    /// The screen the island should open on.
+    ///
+    /// Prefers a screen that actually has a notch. `NSScreen.main` means "the
+    /// screen with keyboard focus", so using it puts the island on whichever
+    /// display happened to be focused at launch — which on a laptop plus an
+    /// external monitor is a coin toss, and lands the notch UI on the monitor
+    /// without a notch about half the time.
+    public static var preferred: ScreenGeometry? {
+        if let notched = NSScreen.screens.first(where: { $0.safeAreaInsets.top > 0 }) {
+            return ScreenGeometry(screen: notched)
+        }
+        return main
+    }
+
+    /// The notched screen, if the Mac has one.
+    public static var notchedScreen: NSScreen? {
+        NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
+    }
+
     /// The window rect for a given island content size, centred on the notch and
     /// pinned to the top of the screen.
     public func windowFrame(contentSize: CGSize) -> CGRect {

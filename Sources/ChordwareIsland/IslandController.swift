@@ -20,7 +20,7 @@ public final class IslandController {
 
     public init(model: IslandModel, geometry: ScreenGeometry? = nil) {
         self.model = model
-        self.geometry = geometry ?? ScreenGeometry.main
+        self.geometry = geometry ?? ScreenGeometry.preferred
             ?? ScreenGeometry(notchWidth: 200, notchHeight: 32, isPhysical: false,
                               screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982))
     }
@@ -142,7 +142,7 @@ public final class IslandController {
 
     /// Re-read the screen, for display changes and hot-plugged monitors.
     public func screenChanged() {
-        guard let updated = ScreenGeometry.main else { return }
+        guard let updated = ScreenGeometry.preferred else { return }
         geometry = updated
         stop()
         start()

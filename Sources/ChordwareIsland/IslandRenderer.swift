@@ -16,6 +16,11 @@ public enum IslandRenderer {
         ("toast", .toast(IslandToast(kind: .cadence,
                                      title: "authentic (V\u{2013}I)",
                                      detail: "G7 \u{2192} Cmaj7"))),
+        // The longest label the toast can carry. This one used to run past the
+        // island's edge, so it stays as a fixture.
+        ("toast-long", .toast(IslandToast(kind: .cadence,
+                                          title: "backdoor (bVII7\u{2013}I)",
+                                          detail: "Bb7 \u{2192} Cmaj13"))),
     ]
 
     /// Render every state, plus the non-notched fallback, into `directory`.
@@ -55,11 +60,33 @@ public enum IslandRenderer {
                 written.append(url)
             }
         }
+        written += try renderReveal(to: directory, geometry: geometry)
         return written
     }
 
-    public static func render(model: IslandModel, geometry: ScreenGeometry, to url: URL) throws -> URL? {
-        let size = IslandRootView.size(for: model.state, geometry: geometry)
+    /// Render the expansion part-way open, to show that the panel is revealed
+    /// by a growing clip rather than faded in.
+    public static func renderReveal(to directory: URL, geometry: ScreenGeometry) throws -> [URL] {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var written: [URL] = []
+        let full = IslandRootView.expandedDetailHeight
+        for (label, fraction) in [("00", 0.0), ("35", 0.35), ("70", 0.70), ("100", 1.0)] {
+            let model = IslandPreviewData.model(state: .expanded)
+            let url = directory.appendingPathComponent("reveal-\(label).png")
+            if let out = try render(model: model, geometry: geometry, to: url,
+                                    detailHeightOverride: full * fraction) {
+                written.append(out)
+            }
+        }
+        return written
+    }
+
+    public static func render(model: IslandModel, geometry: ScreenGeometry, to url: URL,
+                              detailHeightOverride: CGFloat? = nil) throws -> URL? {
+        var size = IslandRootView.size(for: model.state, geometry: geometry)
+        if let detailHeightOverride {
+            size.height = geometry.notchHeight + detailHeightOverride
+        }
         let margin: CGFloat = 40
         let canvas = CGSize(width: size.width + margin * 2, height: size.height + margin)
 
@@ -68,7 +95,8 @@ public enum IslandRenderer {
             // top edge reads as the screen bezel.
             LinearGradient(colors: [Color(white: 0.30), Color(white: 0.16)],
                            startPoint: .top, endPoint: .bottom)
-            IslandRootView(model: model, geometry: geometry)
+            IslandRootView(model: model, geometry: geometry,
+                           detailHeightOverride: detailHeightOverride)
         }
         .frame(width: canvas.width, height: canvas.height)
 
