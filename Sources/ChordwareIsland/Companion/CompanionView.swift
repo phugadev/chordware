@@ -40,17 +40,23 @@ public struct CompanionView: View {
             // while the window resizes underneath it, on a different curve.
             // Holding it at its natural height inside a flexible clipping frame
             // means shrinking the window slides it away instead.
-            // The panel hangs in an overlay rather than sitting in the stack.
-            // A rigid `.frame(height:)` in the layout is reported upwards as a
-            // *minimum*, so NSHostingView refused to let the window shrink past
-            // it and presentation mode came back 300 points too tall. An
-            // overlay draws at its natural height without contributing one.
+            // The panel's height is driven by the mode, not by whatever space
+            // happens to be left over. Leaving it to fill the remainder meant
+            // presentation mode still had room for about forty points of it,
+            // so the column headings showed under the keyboard.
+            //
+            // It hangs in an overlay rather than sitting in the stack because a
+            // rigid `.frame(height:)` inside the layout is reported upward as a
+            // *minimum*, and NSHostingView then refuses to let the window
+            // shrink past it.
             Color.clear
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(height: model.isCompactLayout ? 0 : Self.panelHeight)
+                .frame(maxWidth: .infinity)
                 .overlay(alignment: .top) {
                     panel.frame(height: Self.panelHeight, alignment: .top)
                 }
                 .clipped()
+            Spacer(minLength: 0)
         }
         // Anchor to the top and clip. Mid-resize the content is briefly taller
         // than the window, and a centred stack loses the same amount off both
@@ -67,7 +73,11 @@ public struct CompanionView: View {
     /// One header for both modes. Only the type sizes and two collapsing rows
     /// differ, so nothing has to move across the window when the mode changes.
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 16) {
+        // Baseline alignment between a 40-point symbol and a 22-point numeral
+        // inflates the row by the difference in their ascents, which is how
+        // presentation mode ended up with a header tall enough to clip the
+        // keyboard. Compact centres a single row instead.
+        HStack(alignment: model.isCompactLayout ? .center : .firstTextBaseline, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 if hasSomethingToShow {
                     Text(model.displaySymbol)
@@ -92,40 +102,63 @@ public struct CompanionView: View {
                 }
             }
             Spacer(minLength: 12)
-            VStack(alignment: .trailing, spacing: 4) {
+            if model.isCompactLayout {
+                compactTrailing
+            } else {
+                expandedTrailing
+            }
+        }
+        .padding(.horizontal, model.isCompactLayout ? 20 : 24)
+        .padding(.top, model.isCompactLayout ? 12 : 20)
+        .padding(.bottom, model.isCompactLayout ? 6 : 16)
+    }
+
+    /// Numeral and key on one line, so the header stays one row tall.
+    private var compactTrailing: some View {
+        HStack(spacing: 10) {
+            if let numeral = model.romanNumeral {
+                Text(numeral.symbol(naming: model.naming))
+                    .animatableFont(size: numeralSize)
+                    .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
+                    .lineLimit(1)
+            }
+            if let key = model.key {
+                keyLabel(key, compact: true)
+            }
+        }
+    }
+
+    private var expandedTrailing: some View {
+        VStack(alignment: .trailing, spacing: 4) {
                 if let numeral = model.romanNumeral {
                     Text(numeral.symbol(naming: model.naming))
                         .animatableFont(size: numeralSize)
                         .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
                         .lineLimit(1)
-                    if !model.isCompactLayout {
-                        Text(numeral.explanation ?? numeral.function.name)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(IslandTheme.tertiary)
-                            .lineLimit(1)
-                    }
+                    Text(numeral.explanation ?? numeral.function.name)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(IslandTheme.tertiary)
+                        .lineLimit(1)
                 }
                 if let key = model.key {
-                    HStack(spacing: 4) {
-                        if model.lockedKey != nil {
-                            // Say so, or a fixed key looks like a detector that
-                            // has stopped responding.
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(IslandTheme.tertiary)
-                        }
-                        Text(model.isCompactLayout
-                             ? key.shortName(naming: model.naming)
-                             : "key of \(key.name(naming: model.naming))")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(IslandTheme.secondary)
-                    }
+                    keyLabel(key, compact: false)
                 }
-            }
         }
-        .padding(.horizontal, model.isCompactLayout ? 20 : 24)
-        .padding(.top, model.isCompactLayout ? 14 : 20)
-        .padding(.bottom, model.isCompactLayout ? 8 : 16)
+    }
+
+    /// The key, with a padlock when it was named rather than detected.
+    private func keyLabel(_ key: Key, compact: Bool) -> some View {
+        HStack(spacing: 4) {
+            if model.lockedKey != nil {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(IslandTheme.tertiary)
+            }
+            Text(compact ? key.shortName(naming: model.naming)
+                         : "key of \(key.name(naming: model.naming))")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundStyle(IslandTheme.secondary)
+        }
     }
 
     /// Everything below the keyboard, at its natural height.
@@ -162,18 +195,26 @@ public struct CompanionView: View {
             column("NOTES") {
                 if let chord = model.chord {
                     ForEach(Array(chord.spelledTones.enumerated()), id: \.offset) { _, tone in
+                        // A chord can be named without every tone being played:
+                        // the fifth is optional, so A + C reads as Am. Showing
+                        // the implied E as solidly as the two real notes makes
+                        // the keyboard look like it is missing a key.
+                        let sounding = model.heldNotes.contains {
+                            PitchClass($0) == tone.note.pitchClass
+                        }
                         HStack(spacing: 8) {
                             Text(model.naming.name(tone.note, in: model.key, unicode: true))
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(IslandTheme.primary)
+                                .foregroundStyle(sounding ? IslandTheme.primary : IslandTheme.tertiary)
                                 .frame(width: 34, alignment: .leading)
                             Text(tone.interval.shortName)
                                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                                 .foregroundStyle(IslandTheme.tertiary)
                                 .frame(width: 30, alignment: .leading)
-                            Text(tone.interval.longName)
+                            Text(sounding ? tone.interval.longName
+                                          : tone.interval.longName + " \u{00B7} not played")
                                 .font(.system(size: 11, design: .rounded))
-                                .foregroundStyle(IslandTheme.secondary)
+                                .foregroundStyle(sounding ? IslandTheme.secondary : IslandTheme.tertiary)
                                 .lineLimit(1)
                         }
                     }

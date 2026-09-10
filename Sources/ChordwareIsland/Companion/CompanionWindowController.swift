@@ -12,10 +12,17 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     public var isVisible: Bool { window?.isVisible ?? false }
     public private(set) var isAlwaysOnTop = false
     /// Room for the keyboard at its natural key size, plus one header row.
-    private static let compactSize = NSSize(width: 810, height: 236)
-    private static let companionSize = NSSize(width: 900, height: 600)
+    /// Content sizes, not frame sizes. The titlebar adds roughly thirty points
+    /// on top, and treating one as the other clipped the keyboard off the
+    /// bottom of presentation mode.
+    private static let compactContent = NSSize(width: 810, height: 200)
+    // Tall enough for the header, the keyboard and the full panel. The
+    // header is taller than its type sizes suggest, because baseline
+    // alignment between the symbol and the numeral adds the difference in
+    // their ascents.
+    private static let companionContent = NSSize(width: 900, height: 640)
     private static let companionMinimum = NSSize(width: 700, height: 520)
-    private static let compactMinimum = NSSize(width: 520, height: 180)
+    private static let compactMinimum = NSSize(width: 520, height: 170)
 
     /// The companion frame, kept across launches.
     ///
@@ -67,7 +74,7 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.backgroundColor = NSColor.black
-        window.minSize = Self.companionMinimum
+        window.contentMinSize = Self.companionMinimum
         window.delegate = self
         window.contentView = NSHostingView(rootView: CompanionView(model: model))
 
@@ -97,20 +104,21 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         if mode.usesCompactLayout {
             // Remember where companion was before shrinking, but never record a
             // compact frame as the companion one.
-            if window.frame.height > Self.compactSize.height + 40 {
+            if window.contentLayoutRect.height > Self.compactContent.height + 60 {
                 storedCompanionFrame = window.frame
             }
             let current = window.frame
+            let size = frameSize(forContent: Self.compactContent, in: window)
             // Grow downward from the existing top-left, so the window does not
             // appear to jump across the screen.
             let target = NSRect(x: current.minX,
-                                y: current.maxY - Self.compactSize.height,
-                                width: Self.compactSize.width,
-                                height: Self.compactSize.height)
-            window.minSize = Self.compactMinimum
+                                y: current.maxY - size.height,
+                                width: size.width,
+                                height: size.height)
+            window.contentMinSize = Self.compactMinimum
             resize(window, to: target)
         } else {
-            window.minSize = Self.companionMinimum
+            window.contentMinSize = Self.companionMinimum
             // Grow to *something* valid whatever the window was left at. The
             // failure this replaces was a companion layout stuck in a window
             // too small to hold it, with no way back.
@@ -149,12 +157,18 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         return NSScreen.screens.contains { $0.visibleFrame.intersects(frame) }
     }
 
+    /// Frame size that yields the requested content size, titlebar included.
+    private func frameSize(forContent content: NSSize, in window: NSWindow) -> NSSize {
+        window.frameRect(forContentRect: NSRect(origin: .zero, size: content)).size
+    }
+
     private func defaultCompanionFrame(near current: NSRect) -> NSRect {
         let screen = NSScreen.screens.first { $0.visibleFrame.intersects(current) }
             ?? NSScreen.screens.first { $0.safeAreaInsets.top == 0 }
             ?? NSScreen.main
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let size = Self.companionSize
+        let size = window.map { frameSize(forContent: Self.companionContent, in: $0) }
+            ?? Self.companionContent
         return NSRect(x: visible.midX - size.width / 2,
                       y: visible.midY - size.height / 2,
                       width: size.width, height: size.height)
@@ -177,7 +191,8 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     }
 
     public func windowDidEndLiveResize(_ notification: Notification) {
-        guard let window, window.frame.height > Self.compactSize.height + 40 else { return }
+        guard let window,
+              window.contentLayoutRect.height > Self.compactContent.height + 60 else { return }
         storedCompanionFrame = window.frame
     }
 
