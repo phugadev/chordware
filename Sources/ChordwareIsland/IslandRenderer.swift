@@ -1,0 +1,84 @@
+import AppKit
+import SwiftUI
+
+/// Renders island states to PNG without putting anything on screen.
+///
+/// This is how the island's layout is checked: `ImageRenderer` walks the same
+/// SwiftUI hierarchy the window shows, so the output is faithful, needs no
+/// screen-recording permission, and is identical on every run — which a
+/// screenshot of a live animating window is not.
+@MainActor
+public enum IslandRenderer {
+    public static let states: [(name: String, state: IslandState)] = [
+        ("glance", .glance),
+        ("expanded", .expanded),
+        ("act-next", .act),
+        ("toast", .toast(IslandToast(kind: .cadence,
+                                     title: "authentic (V\u{2013}I)",
+                                     detail: "G7 \u{2192} Cmaj7"))),
+    ]
+
+    /// Render every state, plus the non-notched fallback, into `directory`.
+    public static func renderAll(to directory: URL, geometry: ScreenGeometry) throws -> [URL] {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        var written: [URL] = []
+
+        for (name, state) in states {
+            let model = IslandPreviewData.model(state: state)
+            if case .act = state { model.tab = .suggest }
+            if let url = try render(model: model, geometry: geometry,
+                                    to: directory.appendingPathComponent("island-\(name).png")) {
+                written.append(url)
+            }
+        }
+
+        // The other three tabs of the interactive state.
+        for tab in [IslandTab.reharm, .progression, .scales] {
+            let model = IslandPreviewData.model(state: .act)
+            model.tab = tab
+            let name = "island-act-\(tab.rawValue.lowercased()).png"
+            if let url = try render(model: model, geometry: geometry,
+                                    to: directory.appendingPathComponent(name)) {
+                written.append(url)
+            }
+        }
+
+        // The pill fallback, as an external display would show it.
+        let virtual = ScreenGeometry(notchWidth: ScreenGeometry.virtualNotchSize.width,
+                                     notchHeight: ScreenGeometry.virtualNotchSize.height,
+                                     isPhysical: false,
+                                     screenFrame: geometry.screenFrame)
+        for (name, state) in [("glance", IslandState.glance), ("expanded", .expanded)] {
+            let model = IslandPreviewData.model(state: state)
+            if let url = try render(model: model, geometry: virtual,
+                                    to: directory.appendingPathComponent("pill-\(name).png")) {
+                written.append(url)
+            }
+        }
+        return written
+    }
+
+    public static func render(model: IslandModel, geometry: ScreenGeometry, to url: URL) throws -> URL? {
+        let size = IslandRootView.size(for: model.state, geometry: geometry)
+        let margin: CGFloat = 40
+        let canvas = CGSize(width: size.width + margin * 2, height: size.height + margin)
+
+        let content = ZStack(alignment: .top) {
+            // Stand-in for the desktop, so the black island is visible and the
+            // top edge reads as the screen bezel.
+            LinearGradient(colors: [Color(white: 0.30), Color(white: 0.16)],
+                           startPoint: .top, endPoint: .bottom)
+            IslandRootView(model: model, geometry: geometry)
+        }
+        .frame(width: canvas.width, height: canvas.height)
+
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = 2
+        guard let image = renderer.nsImage,
+              let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return nil }
+        try png.write(to: url)
+        return url
+    }
+}
