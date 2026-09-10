@@ -56,7 +56,7 @@ xcode-select --install    # if you don't have it
 ## Build
 
 ```bash
-git clone https://github.com/YOUR_USER/chordware
+git clone https://github.com/phugadev/chordware
 cd chordware
 make app        # builds dist/Chordware.app
 make install    # copies it to /Applications
