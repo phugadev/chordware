@@ -276,52 +276,46 @@ func runKeyboardRangeTests(_ t: Harness) {
             return r
         }
 
-        t.test("widens immediately for a note outside the view") {
+        t.test("a note outside the view widens it, and nothing moves") {
             let r = range()
             t.equal(r.lowNote, 36, "starts at C2")
+            t.equal(r.highNote, 84, "ends at C6")
+
             t.check(r.observe([24]), "a low C1 widens the range")
-            t.equal(r.lowNote, 24, "now starts at C1")
+            t.equal(r.lowNote, 24, "downwards")
+            t.equal(r.highNote, 84, "and the top edge is untouched")
         }
 
-        t.test("an octave shift slides the window instead of resizing it") {
-            // Pressing octave-up on a controller changes which notes arrive,
-            // not what instrument is being played. The number of keys must stay
-            // put; only the range they cover moves.
+        t.test("the keyboard never slides") {
+            // The bug this replaces: one high note slid the whole instrument up
+            // an octave, so every note already on screen changed position. A
+            // keyboard is a map; middle C has to stay where it was.
             let r = range()
-            let now = Date()
-            r.observe([36, 40, 43], now: now)
-            let span = r.octaves
+            let low = r.lowNote
 
-            r.observe([72, 76, 79], now: now.addingTimeInterval(1))
-            t.equal(r.octaves, span, "same number of keys after shifting up")
-            t.check(r.lowNote <= 72 && r.highNote >= 79, "and the new notes are visible")
+            t.check(!r.observe([50, 53, 57]), "playing inside the view changes nothing")
+            t.equal(r.lowNote, low, "left edge unmoved")
 
-            r.observe([36, 40, 43], now: now.addingTimeInterval(2))
-            t.equal(r.octaves, span, "and after shifting back down")
+            r.observe([89])
+            t.equal(r.lowNote, low, "a high note does not move the left edge")
+            t.check(r.highNote >= 89, "but it does become visible")
+
+            r.observe([50, 53, 57])
+            t.equal(r.lowNote, low, "and coming back down moves nothing either")
         }
 
-        t.test("the span only widens for a reach that genuinely needs it") {
+        t.test("it never shrinks back") {
             let r = range()
-            let now = Date()
-            // Two hands five octaves apart cannot be shown in four.
-            r.observe([24, 96], now: now)
-            t.check(r.octaves > 4, "widened for a spread that does not fit")
-            t.check(r.lowNote <= 24 && r.highNote >= 96, "both ends visible")
-
-            // Once that is out of the window, it returns to the usual span.
-            let later = now.addingTimeInterval(90)
-            r.observe([60, 64], now: later)
-            r.settle(now: later)
-            t.equal(r.octaves, 4, "back to a normal keyboard")
+            r.observe([24])
+            let widened = r.octaves
+            for _ in 0..<20 { r.observe([60, 64, 67]) }
+            t.equal(r.octaves, widened, "staying in the middle does not narrow it")
         }
 
-        t.test("never narrower than two octaves") {
+        t.test("widening stops before the keys become slivers") {
             let r = range()
-            let now = Date()
-            r.observe([60], now: now)
-            r.settle(now: now)
-            t.check(r.octaves >= 2, "a single note still gives a usable keyboard")
-            t.check(r.lowNote <= 60 && r.highNote >= 60, "and that note is on screen")
+            r.observe([0, 127])
+            t.check(r.octaves <= 7, "capped, got \(r.octaves)")
         }
 
         t.test("the fitted range is remembered per device") {
@@ -334,6 +328,7 @@ func runKeyboardRangeTests(_ t: Harness) {
             let second = KeyboardRange(defaults: suite)
             second.use(device: "Controller A")
             t.equal(second.lowNote, first.lowNote, "remembered next session")
+            t.equal(second.highNote, first.highNote, "both edges")
 
             second.use(device: "Controller B")
             t.equal(second.lowNote, 36, "a different device starts fresh")

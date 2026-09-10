@@ -54,12 +54,23 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    public func toggle() { isVisible ? close() : show() }
+    /// True when the window is both on screen and in front of you.
+    ///
+    /// `isVisible` alone is not enough: an accessory app's window can be
+    /// ordered in but sitting behind the DAW, and a toggle that only checks
+    /// visibility then *hides* it -- which is why bringing it up appeared to
+    /// need two presses of the shortcut.
+    public var isFrontmost: Bool { isVisible && NSApp.isActive }
+
+    public func toggle() { isFrontmost ? close() : show() }
 
     public func show() {
         if let window {
-            window.makeKeyAndOrderFront(nil)
+            // Activate first. Ordering a window front from a background app
+            // before the app itself is active can leave it behind everything.
             NSApp.activate(ignoringOtherApps: true)
+            window.makeKeyAndOrderFront(nil)
+            window.orderFrontRegardless()
             return
         }
 
@@ -87,8 +98,9 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         }
 
         self.window = window
-        window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        window.orderFrontRegardless()
     }
 
     public func close() {

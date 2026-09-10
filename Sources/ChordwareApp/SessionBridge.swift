@@ -77,12 +77,8 @@ final class SessionBridge {
         model.chroma = update.chroma
         model.sustainDown = update.sustainDown
         model.velocities = update.velocities
-        if update.notes.isEmpty {
-            // Between phrases is the only safe moment to tighten the view.
-            if keyboardRange.settle() { applyRange() }
-        } else if keyboardRange.observe(update.notes) {
-            applyRange()
-        }
+        // Only ever widens, so this cannot move the keyboard under the player.
+        if !update.notes.isEmpty, keyboardRange.observe(update.notes) { applyRange() }
 
         guard !update.candidates.isEmpty else {
             // No chord does not mean no music. One key held is a note and two
