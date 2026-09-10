@@ -79,6 +79,12 @@ public final class IslandModel {
     /// Set when input is audio rather than MIDI, for the chroma readout.
     public var chroma: [Double]?
     public var inputLabel: String = "no input"
+    /// True while notes are actually sounding.
+    ///
+    /// Separate from "we have a chord" on purpose: the notch collapses when you
+    /// lift your hands, but a companion display should keep the last chord on
+    /// screen. Both read the same model.
+    public var isSounding = false
 
     /// Filled by the generation engine; empty until then.
     public var suggestions: [ChordSuggestion] = []
@@ -105,6 +111,7 @@ public final class IslandModel {
     public func present(candidates: [ChordCandidate], heldNotes: [Int], atMs time: Int) {
         self.candidates = candidates
         self.heldNotes = heldNotes
+        isSounding = !heldNotes.isEmpty
         if let chord = candidates.first?.chord {
             progression.append(chord, atMs: time, notes: heldNotes,
                                confidence: candidates.first?.confidence ?? 1)
@@ -117,11 +124,20 @@ public final class IslandModel {
         }
     }
 
+    /// Notes released. The chord is *kept* so a companion display can go on
+    /// showing what was just played; only `isSounding` and the held keys clear.
     public func clearNotes(atMs time: Int) {
         heldNotes = []
-        candidates = []
+        isSounding = false
         progression.close(atMs: time)
         if case .glance = state { state = .idle }
         if case .toast = state { state = .idle }
+    }
+
+    /// Forget the chord entirely, for an explicit reset.
+    public func clearChord() {
+        candidates = []
+        heldNotes = []
+        isSounding = false
     }
 }

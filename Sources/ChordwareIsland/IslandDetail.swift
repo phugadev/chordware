@@ -106,7 +106,7 @@ struct ConfidenceBar: View {
                 .frame(width: width, height: 3)
                 .overlay(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(IslandTheme.confidenceColor(value))
+                        .fill(IslandTheme.accent.opacity(0.55 + 0.45 * max(0, min(1, value))))
                         .frame(width: width * max(0, min(1, value)), height: 3)
                 }
             Text("\(Int((value * 100).rounded()))%")

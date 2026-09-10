@@ -22,6 +22,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: IslandController?
     private var bridge: SessionBridge?
     private var demo: DemoDriver?
+    private var companion: CompanionWindowController?
+    private var menuBar: MenuBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let arguments = CommandLine.arguments
@@ -74,6 +76,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let controller = IslandController(model: model, geometry: geometry)
         controller.start()
         self.controller = controller
+
+        let companion = CompanionWindowController(model: model)
+        self.companion = companion
+
+        // A background app with no Dock icon needs a status item, or there is
+        // no way to open the window, change input, or even quit.
+        let menuBar = MenuBarController(actions: .init(
+            openCompanion: { companion.toggle() },
+            toggleAlwaysOnTop: { companion.setAlwaysOnTop(!companion.isAlwaysOnTop) },
+            chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
+            chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
+            resetProgression: { [weak self] in
+                self?.model.progression.clear()
+                self?.model.clearChord()
+            }
+        ))
+        menuBar.currentSourceIsAudio = { [weak self] in self?.bridge?.session.source == .audio }
+        menuBar.currentAlwaysOnTop = { companion.isAlwaysOnTop }
+        menuBar.currentChordSummary = { [weak self] in
+            guard let chord = self?.model.chord else { return nil }
+            guard let key = self?.model.key else { return chord.symbol() }
+            return chord.symbol() + "  \u{00B7}  " + key.shortName
+        }
+        menuBar.install()
+        self.menuBar = menuBar
+
+        if arguments.contains("--window") { companion.show() }
 
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,

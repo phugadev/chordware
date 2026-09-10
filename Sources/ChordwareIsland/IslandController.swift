@@ -108,7 +108,7 @@ public final class IslandController {
             // when nothing is playing.
             if inside { setState(.expanded) }
         case .expanded:
-            if !inside { setState(model.candidates.isEmpty ? .idle : .glance) }
+            if !inside { setState(model.isSounding ? .glance : .idle) }
         case .act:
             break
         }
@@ -117,7 +117,7 @@ public final class IslandController {
 
     private func clickedOutside() {
         guard model.state == .act, !islandScreenRect.contains(NSEvent.mouseLocation) else { return }
-        setState(model.candidates.isEmpty ? .idle : .glance)
+        setState(model.isSounding ? .glance : .idle)
     }
 
     private func setState(_ state: IslandState) {
@@ -135,7 +135,7 @@ public final class IslandController {
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
             if case .toast = model.state {
-                setState(model.candidates.isEmpty ? .idle : .glance)
+                setState(model.isSounding ? .glance : .idle)
             }
         }
     }

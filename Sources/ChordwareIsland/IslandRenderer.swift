@@ -61,7 +61,30 @@ public enum IslandRenderer {
             }
         }
         written += try renderReveal(to: directory, geometry: geometry)
+        if let url = try renderCompanion(to: directory.appendingPathComponent("companion.png")) {
+            written.append(url)
+        }
+        if let url = try renderCompanion(to: directory.appendingPathComponent("companion-idle.png"),
+                                         sounding: false) {
+            written.append(url)
+        }
         return written
+    }
+
+    /// Render the companion window's contents at its default size.
+    public static func renderCompanion(to url: URL, sounding: Bool = true) throws -> URL? {
+        let model = IslandPreviewData.model(state: .glance)
+        model.isSounding = sounding
+        if !sounding { model.heldNotes = [] }
+        let view = CompanionView(model: model).frame(width: 900, height: 600)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = 2
+        guard let image = renderer.nsImage,
+              let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return nil }
+        try png.write(to: url)
+        return url
     }
 
     /// Render the expansion part-way open, to show that the panel is revealed

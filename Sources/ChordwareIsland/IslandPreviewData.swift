@@ -47,6 +47,7 @@ public enum IslandPreviewData {
             suggestion("C7alt", "altered tensions", 0.8),
         ]
 
+        model.isSounding = true
         model.state = state
         return model
     }
