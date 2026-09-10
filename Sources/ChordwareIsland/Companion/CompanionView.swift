@@ -18,23 +18,9 @@ public struct CompanionView: View {
 
     public var body: some View {
         Group {
-            if model.isCompactLayout { compact } else { full }
+            if model.isCompactLayout { presentation } else { full }
         }
-        .background {
-            if model.displayMode.isTranslucent {
-                // Overlay sits on top of whatever you are working in, so it has
-                // to let some of it through and stop short of the window edge.
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(IslandTheme.background.opacity(0.78))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(Color.white.opacity(0.14), lineWidth: 1)
-                    )
-                    .padding(6)
-            } else {
-                IslandTheme.background
-            }
-        }
+        .background(IslandTheme.background)
         .preferredColorScheme(.dark)
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: model.displayMode)
     }
@@ -58,7 +44,7 @@ public struct CompanionView: View {
     /// size. Presentation mode is less interface, not a bigger one; blowing the
     /// keys up to fill a window turns the instrument into something that no
     /// longer looks like a piano.
-    private var compact: some View {
+    private var presentation: some View {
         VStack(spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 14) {
                 Text(model.displaySymbol)
@@ -136,9 +122,18 @@ public struct CompanionView: View {
                         .lineLimit(1)
                 }
                 if let key = model.key {
-                    Text("key of \(key.name(naming: model.naming))")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.secondary)
+                    HStack(spacing: 4) {
+                        if model.lockedKey != nil {
+                            // Say so, or a locked key looks like a detector
+                            // that has stopped responding.
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(IslandTheme.tertiary)
+                        }
+                        Text("key of \(key.name(naming: model.naming))")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(IslandTheme.secondary)
+                    }
                 }
             }
         }

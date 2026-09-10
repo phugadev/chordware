@@ -78,7 +78,7 @@ public enum IslandRenderer {
                                          notes: [60, 67]) {
             written.append(url)
         }
-        for mode in [DisplayMode.compact, .overlay] {
+        for mode in [DisplayMode.presentation] {
             let name = "companion-\(mode.rawValue).png"
             if let url = try renderCompanion(to: directory.appendingPathComponent(name),
                                              mode: mode,

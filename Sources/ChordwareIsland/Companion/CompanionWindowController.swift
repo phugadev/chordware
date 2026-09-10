@@ -59,26 +59,11 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
 
     /// Reshape the window for a display mode.
     ///
-    /// Compact and overlay are *less* interface, so the window shrinks too;
-    /// keeping it full size and stretching the contents is how the keys ended
-    /// up as slabs. Overlay additionally goes translucent, loses its titlebar
-    /// and floats, since it is meant to sit on top of the DAW.
+    /// Presentation is *less* interface, so the window shrinks too; keeping it
+    /// full size and stretching the contents is how the keys ended up as slabs.
     public func apply(mode: DisplayMode) {
         guard let window else { return }
-        let compact = mode.usesCompactLayout
-
-        window.isOpaque = !mode.isTranslucent
-        window.backgroundColor = mode.isTranslucent ? .clear : NSColor.black
-        window.hasShadow = !mode.isTranslucent
-        window.styleMask = mode.isTranslucent
-            ? [.borderless, .resizable, .fullSizeContentView]
-            : [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
-        window.isMovableByWindowBackground = true
-        if !isAlwaysOnTop { window.level = mode.floatsAboveOtherApps ? .floating : .normal }
-        // A borderless window will not accept key events unless it says it can.
-        window.makeKeyAndOrderFront(nil)
-
-        if compact {
+        if mode.usesCompactLayout {
             if expandedFrame == nil { expandedFrame = window.frame }
             let current = window.frame
             // Grow downward from the existing top-left, so the window does not
@@ -98,13 +83,6 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         }
     }
 
-    /// Let clicks reach whatever is underneath, for an overlay you only watch.
-    public func setClickThrough(_ passThrough: Bool) {
-        isClickThrough = passThrough
-        window?.ignoresMouseEvents = passThrough
-    }
-
-    public private(set) var isClickThrough = false
 
     public func setAlwaysOnTop(_ onTop: Bool) {
         isAlwaysOnTop = onTop

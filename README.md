@@ -92,18 +92,31 @@ well on dense, distorted or heavily percussive material, where the harmony is
 genuinely ambiguous in the spectrum. It is a musical assistant, not a
 transcription oracle. MIDI input has no such limits — it is exact.
 
-## Three ways to show it
+## Two ways to show it
 
 | Mode | What it is |
 |---|---|
 | **Companion** | Everything: keyboard, notes and intervals, alternative readings, fitting scales, the progression so far. |
-| **Compact** | The keyboard and one line of text, in a window shrunk to fit. For recording, or playing to a room. |
-| **Overlay** | Compact, translucent and floating above your DAW, with an optional click-through so it never intercepts a mouse. |
+| **Presentation** | The keyboard and one line of text, in a window shrunk to fit. For recording, or playing to a room. |
 
-All three draw the same keyboard at the same key size. The modes differ in what
-surrounds it and how the window behaves, never in how the instrument is drawn.
+Both draw the same keyboard at the same key size. They differ in what surrounds
+it and how big the window is, never in how the instrument is drawn.
 
-`Control-Option-Command-P` cycles them.
+`Control-Option-Command-P` switches between them.
+
+## Spelling, and the key
+
+Nothing about accidentals is hardcoded. A note is spelled by the chord it
+belongs to first, and by the key signature second — which is why the same black
+key reads `B♭` inside a C7 and `A♯` inside an F♯7, and why an unaccompanied
+black key reads `G♭` in F major and `F♯` in C major. That is how notation works
+rather than a shortcut.
+
+The consequence is that the key has to be established before spelling settles,
+and detecting it takes a few chords. If you already know what you are in, name
+it: **menu bar > Key**. Everything then spells against it from the first note,
+and the readout shows a padlock so a fixed key is never mistaken for a detector
+that has stopped responding.
 
 ## The keyboard
 
@@ -126,7 +139,7 @@ notch where it cannot be clicked, so there is a global shortcut too:
 | | |
 |---|---|
 | `Control-Option-Command-C` | show or hide the window |
-| `Control-Option-Command-P` | cycle companion → compact → overlay |
+| `Control-Option-Command-P` | switch between companion and presentation |
 | menu bar > Quit | or `Command-Q` from the menu |
 
 ## Passthrough, and why it is off

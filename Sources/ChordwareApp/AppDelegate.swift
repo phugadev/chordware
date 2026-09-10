@@ -94,7 +94,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 companion.show()
                 companion.apply(mode: mode)
             },
-            toggleClickThrough: { companion.setClickThrough(!companion.isClickThrough) },
+            setKey: { [weak self] key in
+                self?.bridge?.session.lockedKey = key
+                self?.model.lockedKey = key
+            },
             chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
             chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
             togglePassthrough: { [weak self] in
@@ -118,7 +121,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.currentAlwaysOnTop = { companion.isAlwaysOnTop }
         menuBar.currentPassthrough = { [weak self] in self?.bridge?.session.midiOut.passthrough ?? false }
         menuBar.currentDisplayMode = { [weak self] in self?.model.displayMode ?? .companion }
-        menuBar.currentClickThrough = { companion.isClickThrough }
+        menuBar.currentLockedKey = { [weak self] in self?.model.lockedKey }
         menuBar.currentNaming = { [weak self] in self?.model.naming ?? .letters }
         menuBar.currentRoleColors = { [weak self] in self?.model.roleColors ?? true }
         menuBar.currentChordSummary = { [weak self] in

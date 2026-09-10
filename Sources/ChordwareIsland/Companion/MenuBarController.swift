@@ -11,7 +11,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         public var openCompanion: () -> Void
         public var toggleAlwaysOnTop: () -> Void
         public var setDisplayMode: (DisplayMode) -> Void
-        public var toggleClickThrough: () -> Void
+        public var setKey: (Key?) -> Void
         public var chooseMIDI: () -> Void
         public var chooseAudio: () -> Void
         public var togglePassthrough: () -> Void
@@ -24,7 +24,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         public init(openCompanion: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
                     setDisplayMode: @escaping (DisplayMode) -> Void,
-                    toggleClickThrough: @escaping () -> Void,
+                    setKey: @escaping (Key?) -> Void,
                     chooseMIDI: @escaping () -> Void,
                     chooseAudio: @escaping () -> Void,
                     togglePassthrough: @escaping () -> Void,
@@ -36,7 +36,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             self.openCompanion = openCompanion
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
             self.setDisplayMode = setDisplayMode
-            self.toggleClickThrough = toggleClickThrough
+            self.setKey = setKey
             self.chooseMIDI = chooseMIDI
             self.chooseAudio = chooseAudio
             self.togglePassthrough = togglePassthrough
@@ -54,7 +54,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentChordSummary: () -> String? = { nil }
     public var currentPassthrough: () -> Bool = { false }
     public var currentDisplayMode: () -> DisplayMode = { .companion }
-    public var currentClickThrough: () -> Bool = { false }
+    public var currentLockedKey: () -> Key? = { nil }
     public var currentNaming: () -> NoteNaming = { .letters }
     public var currentRoleColors: () -> Bool = { true }
 
@@ -102,26 +102,46 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         let mode = currentDisplayMode()
         for option in DisplayMode.allCases {
             let item = NSMenuItem(title: option.displayName, action: #selector(fire(_:)),
-                                  keyEquivalent: option == .compact ? "p" : "")
-            if option == .compact { item.keyEquivalentModifierMask = [.command, .option, .control] }
+                                  keyEquivalent: option == .presentation ? "p" : "")
+            if option == .presentation {
+                item.keyEquivalentModifierMask = [.command, .option, .control]
+            }
             item.target = self
             item.state = option == mode ? .on : .off
             item.representedObject = Box { [weak self] in self?.actions.setDisplayMode(option) }
             switch option {
             case .companion: item.toolTip = "Everything: notes, alternatives, scales, progression."
-            case .compact: item.toolTip = "Just the chord and the keyboard, in a window that fits it."
-            case .overlay: item.toolTip = "Compact, translucent and floating over your DAW."
+            case .presentation: item.toolTip = "Just the chord and the keyboard, in a window that fits it."
             }
             menu.addItem(item)
-        }
-        if mode == .overlay {
-            add(menu, "Click Through Overlay", key: "", checked: currentClickThrough()) { [weak self] in
-                self?.actions.toggleClickThrough()
-            }
         }
         add(menu, "Colour Keys by Role", key: "", checked: currentRoleColors()) { [weak self] in
             self?.actions.toggleRoleColors()
         }
+
+        // Spelling depends on the key, and the key takes a few chords to
+        // establish. Naming it up front is the answer to "why is my D minor
+        // full of sharps".
+        let keyItem = NSMenuItem(title: "Key", action: nil, keyEquivalent: "")
+        let keyMenu = NSMenu()
+        let locked = currentLockedKey()
+        let auto = NSMenuItem(title: "Detect Automatically", action: #selector(fire(_:)),
+                              keyEquivalent: "")
+        auto.target = self
+        auto.state = locked == nil ? .on : .off
+        auto.representedObject = Box { [weak self] in self?.actions.setKey(nil) }
+        keyMenu.addItem(auto)
+        keyMenu.addItem(.separator())
+        for candidate in Key.allKeys {
+            let item = NSMenuItem(title: candidate.name, action: #selector(fire(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.state = candidate == locked ? .on : .off
+            item.representedObject = Box { [weak self] in self?.actions.setKey(candidate) }
+            keyMenu.addItem(item)
+        }
+        keyItem.submenu = keyMenu
+        menu.addItem(keyItem)
 
         let namingItem = NSMenuItem(title: "Note Names", action: nil, keyEquivalent: "")
         let namingMenu = NSMenu()

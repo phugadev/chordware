@@ -96,7 +96,9 @@ public final class IslandModel {
     /// Which of the three displays is showing.
     public var displayMode: DisplayMode = .companion
 
-    public var isCompactLayout: Bool { displayMode != .companion }
+    public var isCompactLayout: Bool { displayMode.usesCompactLayout }
+    /// Set when the player has named the key rather than letting it be guessed.
+    public var lockedKey: Key?
     /// How note and chord names are written.
     public var naming: NoteNaming = IslandModel.loadNaming() { didSet { IslandModel.store(naming) } }
     /// Colour held keys by their role in the chord, rather than all alike.
