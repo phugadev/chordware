@@ -160,8 +160,4 @@ public enum ScaleLibrary {
         }
     }
 
-    /// Scales whose notes exactly match a set of pitch classes.
-    public static func matching(pitchClasses: Set<PitchClass>, root: PitchClass) -> [Scale] {
-        all.filter { $0.pitchClassSet(root: root) == pitchClasses }
-    }
 }

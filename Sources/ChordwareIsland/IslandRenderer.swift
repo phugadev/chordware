@@ -1,4 +1,5 @@
 import AppKit
+import ChordwareCore
 import SwiftUI
 
 /// Renders island states to PNG without putting anything on screen.
@@ -81,16 +82,25 @@ public enum IslandRenderer {
                                          presentation: true) {
             written.append(url)
         }
+        for naming in [NoteNaming.fixedDo, .scaleDegrees] {
+            let name = "companion-\(naming.rawValue).png"
+            if let url = try renderCompanion(to: directory.appendingPathComponent(name),
+                                             naming: naming) {
+                written.append(url)
+            }
+        }
         return written
     }
 
     /// Render the companion window's contents at its default size.
     public static func renderCompanion(to url: URL, sounding: Bool = true,
                                        notes: [Int]? = nil,
-                                       presentation: Bool = false) throws -> URL? {
+                                       presentation: Bool = false,
+                                       naming: NoteNaming = .letters) throws -> URL? {
         let model = IslandPreviewData.model(state: .glance)
         model.isSounding = sounding
         model.presentationMode = presentation
+        model.naming = naming
         if !sounding { model.heldNotes = [] }
         if let notes {
             model.presentNotesOnly(notes, atMs: 0)

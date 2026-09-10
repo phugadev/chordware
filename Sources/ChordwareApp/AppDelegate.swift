@@ -108,12 +108,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.bridge?.session.panic()
                 self?.model.clearChord()
             },
-            resetKeyboardRange: { [weak self] in self?.bridge?.resetKeyboardRange() }
+            resetKeyboardRange: { [weak self] in self?.bridge?.resetKeyboardRange() },
+            setNaming: { [weak self] naming in self?.model.naming = naming },
+            toggleRoleColors: { [weak self] in self?.model.roleColors.toggle() }
         ))
         menuBar.currentSourceIsAudio = { [weak self] in self?.bridge?.session.source == .audio }
         menuBar.currentAlwaysOnTop = { companion.isAlwaysOnTop }
         menuBar.currentPassthrough = { [weak self] in self?.bridge?.session.midiOut.passthrough ?? false }
         menuBar.currentPresentation = { [weak self] in self?.model.presentationMode ?? false }
+        menuBar.currentNaming = { [weak self] in self?.model.naming ?? .letters }
+        menuBar.currentRoleColors = { [weak self] in self?.model.roleColors ?? true }
         menuBar.currentChordSummary = { [weak self] in
             guard let chord = self?.model.chord else { return nil }
             guard let key = self?.model.key else { return chord.symbol() }

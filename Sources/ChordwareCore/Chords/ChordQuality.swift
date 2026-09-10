@@ -149,13 +149,6 @@ public enum ChordDictionary {
 
     public static func quality(id: String) -> ChordQuality? { byID[id] }
 
-    /// Lookup by written symbol or any accepted alias, longest match first so
-    /// `maj7` never gets shadowed by `maj`.
-    public static func quality(symbol: String) -> ChordQuality? {
-        if let exact = all.first(where: { $0.symbol == symbol }) { return exact }
-        return all.first { $0.aliases.contains(symbol) }
-    }
-
     /// Every written form, longest first — used by the parser to bite off the
     /// largest suffix it can before giving up.
     public static let symbolsByLength: [(String, ChordQuality)] = {

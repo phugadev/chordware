@@ -1,4 +1,5 @@
 import AppKit
+import ChordwareCore
 
 /// A status-bar item, so a background app with no Dock icon is still reachable.
 ///
@@ -16,6 +17,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         public var resetProgression: () -> Void
         public var panic: () -> Void
         public var resetKeyboardRange: () -> Void
+        public var setNaming: (NoteNaming) -> Void
+        public var toggleRoleColors: () -> Void
 
         public init(openCompanion: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
@@ -25,7 +28,9 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
                     togglePassthrough: @escaping () -> Void,
                     resetProgression: @escaping () -> Void,
                     panic: @escaping () -> Void,
-                    resetKeyboardRange: @escaping () -> Void) {
+                    resetKeyboardRange: @escaping () -> Void,
+                    setNaming: @escaping (NoteNaming) -> Void,
+                    toggleRoleColors: @escaping () -> Void) {
             self.openCompanion = openCompanion
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
             self.togglePresentation = togglePresentation
@@ -35,6 +40,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             self.resetProgression = resetProgression
             self.panic = panic
             self.resetKeyboardRange = resetKeyboardRange
+            self.setNaming = setNaming
+            self.toggleRoleColors = toggleRoleColors
         }
     }
 
@@ -44,6 +51,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentChordSummary: () -> String? = { nil }
     public var currentPassthrough: () -> Bool = { false }
     public var currentPresentation: () -> Bool = { false }
+    public var currentNaming: () -> NoteNaming = { .letters }
+    public var currentRoleColors: () -> Bool = { true }
 
     private var statusItem: NSStatusItem?
     private let actions: Actions
@@ -94,6 +103,26 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         presentation.representedObject = Box { [weak self] in self?.actions.togglePresentation() }
         presentation.toolTip = "Just the chord and the keyboard, for recording or performing."
         menu.addItem(presentation)
+        add(menu, "Colour Keys by Role", key: "", checked: currentRoleColors()) { [weak self] in
+            self?.actions.toggleRoleColors()
+        }
+
+        let namingItem = NSMenuItem(title: "Note Names", action: nil, keyEquivalent: "")
+        let namingMenu = NSMenu()
+        let naming = currentNaming()
+        for option in NoteNaming.allCases {
+            let item = NSMenuItem(title: option.displayName, action: #selector(fire(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.state = option == naming ? .on : .off
+            item.representedObject = Box { [weak self] in self?.actions.setNaming(option) }
+            if option.requiresKey {
+                item.toolTip = "Relative to the detected key, so it needs one to be established."
+            }
+            namingMenu.addItem(item)
+        }
+        namingItem.submenu = namingMenu
+        menu.addItem(namingItem)
         menu.addItem(.separator())
 
         let audio = currentSourceIsAudio()

@@ -30,8 +30,41 @@ public struct RomanNumeral: Sendable, Hashable, CustomStringConvertible {
     public let explanation: String?
     /// For secondary function, the numeral being tonicised.
     public let target: String?
+    /// The figure written after the numeral, kept so the same analysis can be
+    /// rendered in another system.
+    public let figure: String
+    /// Numbers cannot carry case, so minor quality has to be written out.
+    public let isMinorQuality: Bool
 
     public var description: String { symbol }
+
+    /// Nashville numbers: `1`, `2m7`, `5`, `b7`. Case conveys quality in Roman
+    /// numerals and cannot in digits, so minor chords take an explicit `m`.
+    public var nashville: String {
+        let mark = accidental == 0 ? ""
+            : String(repeating: accidental < 0 ? "b" : "#", count: abs(accidental))
+        // Diminished and half-diminished already say so in the figure.
+        let needsM = isMinorQuality && !figure.contains("\u{00B0}") && !figure.contains("\u{00F8}")
+        var text = mark + "\(degree)" + (needsM ? "m" : "") + figure
+        // Secondary function keeps its slash, with the target in numbers too.
+        if let target, symbol.contains("/") {
+            text = (symbol.hasPrefix("subV") ? "sub5" : "5") + figure + "/" + Self.numeral(target)
+        }
+        return text
+    }
+
+    private static func numeral(_ roman: String) -> String {
+        let order = ["i": 1, "ii": 2, "iii": 3, "iv": 4, "v": 5, "vi": 6, "vii": 7]
+        let lowered = roman.lowercased()
+        guard let degree = order[lowered] else { return roman }
+        let isMinor = roman == lowered
+        return "\(degree)" + (isMinor ? "m" : "")
+    }
+
+    /// Render in a chosen naming system.
+    public func symbol(naming: NoteNaming) -> String {
+        naming == .scaleDegrees ? nashville : symbol
+    }
 }
 
 public enum RomanNumeralAnalyzer {
@@ -143,7 +176,9 @@ public enum RomanNumeralAnalyzer {
 
         return RomanNumeral(symbol: symbol, degree: degree, accidental: accidental,
                             function: function, isDiatonic: isDiatonic,
-                            explanation: explanation, target: target)
+                            explanation: explanation, target: target,
+                            figure: figure(for: chord.quality),
+                            isMinorQuality: isLowercase(chord.quality))
     }
 
     /// Recognise a chord that tonicises some other degree: `V7/ii`, `vii\u{00B0}7/V`,

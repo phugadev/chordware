@@ -27,11 +27,6 @@ public struct HeldNotes: Sendable, Equatable {
     /// Velocity of every key currently down.
     public var velocities: [Int: Int] { keysDown }
 
-    public var averageVelocity: Int {
-        guard !keysDown.isEmpty else { return 0 }
-        return keysDown.values.reduce(0, +) / keysDown.count
-    }
-
     @discardableResult
     public mutating func noteOn(_ note: Int, velocity: Int = 100) -> Bool {
         // A note-on with zero velocity is a note-off; plenty of hardware sends

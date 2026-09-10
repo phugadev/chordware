@@ -74,10 +74,6 @@ public struct SpelledNote: Hashable, Sendable, CustomStringConvertible {
         return SpelledNote(targetLetter, alt)
     }
 
-    /// True when the spelling needs more than a double accidental, which means
-    /// we should fall back to a plainer name rather than print `Fbbb`.
-    public var isPractical: Bool { abs(alteration) <= 2 }
-
     /// Position on the circle of fifths, C = 0, negative on the flat side.
     /// Real music lives roughly within ±7 (C♯ major to C♭ major); anything
     /// beyond that — B♯, F♭♭ — is a spelling nobody writes.

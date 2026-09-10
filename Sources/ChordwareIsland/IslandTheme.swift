@@ -36,30 +36,12 @@ public enum IslandTheme {
         ("7th \u{0026} tensions", roleColor(.seventh)),
     ]
 
-    public static func roleName(_ role: ChordToneRole) -> String {
-        switch role {
-        case .root: return "root"
-        case .third: return "third"
-        case .fifth: return "fifth"
-        case .seventh: return "seventh"
-        case .tension: return "tension"
-        }
-    }
-    public static let diatonic = Color(red: 0.55, green: 0.85, blue: 0.72)
-    public static let chromatic = Color(red: 1.0, green: 0.78, blue: 0.42)
-    public static let warn = Color(red: 1.0, green: 0.52, blue: 0.48)
-
     public static func chordFont(_ size: CGFloat) -> Font {
         .system(size: size, weight: .semibold, design: .rounded)
     }
 
     public static func labelFont(_ size: CGFloat) -> Font {
         .system(size: size, weight: .medium, design: .rounded)
-    }
-
-    /// Colour a confidence value the way the CLI meter does.
-    public static func confidenceColor(_ value: Double) -> Color {
-        value > 0.85 ? diatonic : (value > 0.6 ? chromatic : tertiary)
     }
 
     public static let spring = Animation.spring(response: 0.38, dampingFraction: 0.78)

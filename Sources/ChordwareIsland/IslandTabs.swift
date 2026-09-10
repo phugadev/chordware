@@ -110,12 +110,13 @@ struct ScalesTab: View {
             } else {
                 ForEach(Array(fits.prefix(5).enumerated()), id: \.offset) { _, fit in
                     HStack(spacing: 8) {
-                        Text("\(fit.root.name()) \(fit.scale.name)")
+                        Text("\(model.naming.name(fit.root, in: model.key)) \(fit.scale.name)")
                             .font(IslandTheme.labelFont(11))
                             .foregroundStyle(IslandTheme.primary)
                             .frame(width: 148, alignment: .leading)
                             .lineLimit(1)
-                        Text(fit.scale.spelled(root: fit.root).map { $0.name() }.joined(separator: " "))
+                        Text(fit.scale.spelled(root: fit.root, naming: model.naming, key: model.key)
+                            .joined(separator: " "))
                             .font(.system(size: 9, weight: .regular, design: .monospaced))
                             .foregroundStyle(IslandTheme.secondary)
                             .lineLimit(1)

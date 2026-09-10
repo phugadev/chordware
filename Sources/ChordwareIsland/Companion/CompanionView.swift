@@ -52,13 +52,13 @@ public struct CompanionView: View {
                     .contentTransition(.numericText())
                 Spacer(minLength: 8)
                 if let numeral = model.romanNumeral {
-                    Text(numeral.symbol)
+                    Text(numeral.symbol(naming: model.naming))
                         .font(.system(size: 52, weight: .semibold, design: .rounded))
                         .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
                         .lineLimit(1)
                 }
                 if let key = model.key {
-                    Text(key.shortName)
+                    Text(key.shortName(naming: model.naming))
                         .font(.system(size: 22, weight: .medium, design: .rounded))
                         .foregroundStyle(IslandTheme.tertiary)
                 }
@@ -73,7 +73,10 @@ public struct CompanionView: View {
                       showsOctaveLabels: true,
                       namesHeldNotes: true,
                       chord: model.chord,
-                      velocities: model.velocities)
+                      velocities: model.velocities,
+                      naming: model.naming,
+                      key: model.key,
+                      usesRoleColors: model.roleColors)
                 .frame(maxHeight: .infinity)
                 .padding(.horizontal, 28)
                 .padding(.bottom, 28)
@@ -101,7 +104,7 @@ public struct CompanionView: View {
             Spacer(minLength: 12)
             VStack(alignment: .trailing, spacing: 4) {
                 if let numeral = model.romanNumeral {
-                    Text(numeral.symbol)
+                    Text(numeral.symbol(naming: model.naming))
                         .font(.system(size: 38, weight: .semibold, design: .rounded))
                         .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
                         .lineLimit(1)
@@ -111,7 +114,7 @@ public struct CompanionView: View {
                         .lineLimit(1)
                 }
                 if let key = model.key {
-                    Text("key of \(key.name)")
+                    Text("key of \(key.name(naming: model.naming))")
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundStyle(IslandTheme.secondary)
                 }
@@ -126,13 +129,15 @@ public struct CompanionView: View {
 
     private var keyboard: some View {
         MiniPiano(heldNotes: model.heldNotes,
-                  scaleNotes: model.key?.pitchClasses ?? [],
                   lowNote: model.keyboardLowNote,
                   octaves: model.keyboardOctaves,
                   showsOctaveLabels: true,
                   namesHeldNotes: true,
                   chord: model.chord,
-                  velocities: model.velocities)
+                  velocities: model.velocities,
+                  naming: model.naming,
+                  key: model.key,
+                  usesRoleColors: model.roleColors)
             .frame(height: 132)
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
@@ -150,7 +155,7 @@ public struct CompanionView: View {
                 if let chord = model.chord {
                     ForEach(Array(chord.spelledTones.enumerated()), id: \.offset) { _, tone in
                         HStack(spacing: 8) {
-                            Text(tone.note.name(unicode: true))
+                            Text(model.naming.name(tone.note, in: model.key, unicode: true))
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(IslandTheme.primary)
                                 .frame(width: 34, alignment: .leading)
@@ -169,9 +174,7 @@ public struct CompanionView: View {
                     // it sits in the key.
                     ForEach(model.heldNotes.sorted(), id: \.self) { note in
                         HStack(spacing: 8) {
-                            Text(SpelledNote.natural(PitchClass(note),
-                                                     preferFlats: model.key?.preferFlats ?? false)
-                                .name(unicode: true))
+                            Text(model.naming.name(PitchClass(note), in: model.key, unicode: true))
                                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                                 .foregroundStyle(IslandTheme.primary)
                                 .frame(width: 34, alignment: .leading)
@@ -204,7 +207,7 @@ public struct CompanionView: View {
                 } else {
                     ForEach(Array(model.alternatives.prefix(4).enumerated()), id: \.offset) { _, alt in
                         HStack(spacing: 8) {
-                            Text(alt.chord.symbol(unicode: true))
+                            Text(alt.chord.symbol(naming: model.naming, in: model.key, unicode: true))
                                 .font(.system(size: 12, weight: .medium, design: .rounded))
                                 .foregroundStyle(IslandTheme.secondary)
                                 .frame(width: 86, alignment: .leading)
@@ -224,11 +227,12 @@ public struct CompanionView: View {
                 }
                 ForEach(Array(fits.prefix(5).enumerated()), id: \.offset) { _, fit in
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("\(fit.root.name()) \(fit.scale.name)")
+                        Text("\(model.naming.name(fit.root, in: model.key)) \(fit.scale.name)")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(IslandTheme.primary)
                             .lineLimit(1)
-                        Text(fit.scale.spelled(root: fit.root).map { $0.name() }.joined(separator: " "))
+                        Text(fit.scale.spelled(root: fit.root, naming: model.naming, key: model.key)
+                            .joined(separator: " "))
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundStyle(IslandTheme.tertiary)
                             .lineLimit(1)

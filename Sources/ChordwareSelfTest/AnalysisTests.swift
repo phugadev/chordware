@@ -220,3 +220,61 @@ func runPerformanceTests(_ t: Harness) {
         }
     }
 }
+
+func runNamingTests(_ t: Harness) {
+    let c = Key(tonic: SpelledNote("C")!, mode: .major)
+    let f = Key(tonic: SpelledNote("F")!, mode: .major)
+
+    t.suite("Note naming") {
+        t.test("letters are unchanged") {
+            t.equal(NoteNaming.letters.name(SpelledNote("Bb")!), "Bb", "Bb")
+            t.equal(NoteNaming.letters.name(SpelledNote("F#")!), "F#", "F#")
+        }
+
+        t.test("fixed do keeps Do on C whatever the key") {
+            // Fixed do is a naming system, not a relative one: Do is always C,
+            // in every key. That is the distinction from movable do.
+            t.equal(NoteNaming.fixedDo.name(SpelledNote("C")!, in: c), "Do", "C is Do in C")
+            t.equal(NoteNaming.fixedDo.name(SpelledNote("C")!, in: f), "Do", "C is still Do in F")
+            t.equal(NoteNaming.fixedDo.name(SpelledNote("Bb")!), "Sib", "Bb is Si flat")
+            t.equal(NoteNaming.fixedDo.name(SpelledNote("F#")!), "Fa#", "F# is Fa sharp")
+            t.equal(NoteNaming.fixedDo.name(SpelledNote("G")!), "Sol", "G is Sol")
+        }
+
+        t.test("scale degrees are relative to the key") {
+            t.equal(NoteNaming.scaleDegrees.name(SpelledNote("C")!, in: c), "1", "C is 1 in C")
+            t.equal(NoteNaming.scaleDegrees.name(SpelledNote("G")!, in: c), "5", "G is 5 in C")
+            t.equal(NoteNaming.scaleDegrees.name(SpelledNote("C")!, in: f), "5", "C is 5 in F")
+            t.equal(NoteNaming.scaleDegrees.name(SpelledNote("Bb")!, in: f), "4", "Bb is 4 in F")
+            t.equal(NoteNaming.scaleDegrees.name(SpelledNote("Eb")!, in: c), "b3", "Eb is a flat 3")
+            t.equal(NoteNaming.scaleDegrees.name(SpelledNote("F#")!, in: c), "#4", "F# is a sharp 4")
+        }
+
+        t.test("a relative system falls back when there is no key") {
+            t.equal(NoteNaming.scaleDegrees.name(SpelledNote("Eb")!, in: nil), "Eb",
+                    "letters until a key is known")
+            t.check(NoteNaming.scaleDegrees.requiresKey, "declares that it needs one")
+            t.check(!NoteNaming.fixedDo.requiresKey, "fixed do does not")
+        }
+
+        t.test("chord symbols follow the system, suffixes do not") {
+            let chord = ChordParser.parse("Bbmaj7")!
+            t.equal(chord.symbol(naming: .letters), "Bbmaj7", "letters")
+            t.equal(chord.symbol(naming: .fixedDo), "Sibmaj7", "fixed do keeps the quality suffix")
+            t.equal(chord.symbol(naming: .scaleDegrees, in: f), "4maj7", "Bb is the 4 of F")
+
+            let slash = ChordParser.parse("C/G")!
+            t.equal(slash.symbol(naming: .fixedDo), "Do/Sol", "the bass is named too")
+        }
+
+        t.test("Nashville numbers replace Roman numerals") {
+            let numerals = RomanNumeralAnalyzer.analyze(
+                [ChordParser.parse("Cmaj7")!, ChordParser.parse("Dm7")!,
+                 ChordParser.parse("G7")!, ChordParser.parse("Ab")!], in: c)
+            t.equal(numerals.map { $0.symbol(naming: .scaleDegrees) },
+                    ["1maj7", "2m7", "57", "b6"], "numbers carry quality as an m")
+            t.equal(numerals.map { $0.symbol(naming: .letters) },
+                    ["Imaj7", "ii7", "V7", "bVI"], "Roman numerals unchanged")
+        }
+    }
+}

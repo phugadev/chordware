@@ -207,7 +207,7 @@ struct GlanceRight: View {
     var body: some View {
         HStack(spacing: 6) {
             if let numeral = model.romanNumeral {
-                Text(numeral.symbol)
+                Text(numeral.symbol(naming: model.naming))
                     .font(IslandTheme.labelFont(12))
                     .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
                     .lineLimit(1)
@@ -218,7 +218,7 @@ struct GlanceRight: View {
                 if model.romanNumeral != nil {
                     Circle().fill(IslandTheme.tertiary).frame(width: 2.5, height: 2.5)
                 }
-                Text(key.shortName)
+                Text(key.shortName(naming: model.naming))
                     .font(IslandTheme.labelFont(10))
                     .foregroundStyle(IslandTheme.secondary)
                     .lineLimit(1)

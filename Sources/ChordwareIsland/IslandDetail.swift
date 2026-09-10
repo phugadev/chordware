@@ -16,9 +16,12 @@ struct ExpandedDetail: View {
                 ConfidenceBar(value: model.confidence)
             }
 
-            MiniPiano(heldNotes: model.heldNotes, scaleNotes: scaleNotes,
+            MiniPiano(heldNotes: model.heldNotes,
                       lowNote: model.keyboardLowNote, octaves: model.keyboardOctaves,
-                      showsOctaveLabels: true, chord: model.chord)
+                      showsOctaveLabels: true, chord: model.chord,
+                      velocities: model.velocities,
+                      naming: model.naming, key: model.key,
+                      usesRoleColors: model.roleColors)
                 .frame(height: 46)
 
             if !model.alternatives.isEmpty {
@@ -27,7 +30,8 @@ struct ExpandedDetail: View {
                         .font(IslandTheme.labelFont(9))
                         .foregroundStyle(IslandTheme.tertiary)
                     ForEach(Array(model.alternatives.prefix(3).enumerated()), id: \.offset) { _, alt in
-                        ChordChip(text: alt.chord.symbol(unicode: true))
+                        ChordChip(text: alt.chord.symbol(naming: model.naming, in: model.key,
+                                                          unicode: true))
                     }
                     Spacer(minLength: 0)
                 }
@@ -44,10 +48,6 @@ struct ExpandedDetail: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var scaleNotes: Set<PitchClass> {
-        guard let key = model.key else { return [] }
-        return key.pitchClasses
-    }
 }
 
 /// The interactive state: tabs the player can act on without leaving their DAW.
@@ -146,13 +146,13 @@ struct ProgressionStrip: View {
             } else {
                 ForEach(events) { event in
                     VStack(spacing: 1) {
-                        Text(event.chord.symbol(unicode: true))
+                        Text(event.chord.symbol(naming: model.naming, in: model.key, unicode: true))
                             .font(IslandTheme.labelFont(10))
                             .foregroundStyle(event.id == events.last?.id
                                              ? IslandTheme.primary : IslandTheme.secondary)
                         if let key = model.key {
                             let numeral = RomanNumeralAnalyzer.analyze(event.chord, in: key)
-                            Text(numeral.symbol)
+                            Text(numeral.symbol(naming: model.naming))
                                 .font(.system(size: 8, weight: .medium, design: .rounded))
                                 .foregroundStyle(numeral.isDiatonic
                                                  ? IslandTheme.diatonic.opacity(0.8)

@@ -59,6 +59,18 @@ public struct Key: Hashable, Sendable, CustomStringConvertible {
     public var name: String { "\(tonic.name()) \(mode.rawValue)" }
     /// Abbreviated form for tight layouts such as the island's collapsed strip.
     public var shortName: String { "\(tonic.name()) \(mode == .major ? "maj" : "min")" }
+
+    /// A key written in a naming system. Degrees are relative to a key, so
+    /// naming a key by degree would be circular; that case keeps letters.
+    public func name(naming: NoteNaming) -> String {
+        guard naming != .scaleDegrees else { return name }
+        return "\(naming.name(tonic, in: self)) \(mode.rawValue)"
+    }
+
+    public func shortName(naming: NoteNaming) -> String {
+        guard naming != .scaleDegrees else { return shortName }
+        return "\(naming.name(tonic, in: self)) \(mode == .major ? "maj" : "min")"
+    }
     public var description: String { name }
 
     /// Spell the tonic of every key the estimator can report, choosing the

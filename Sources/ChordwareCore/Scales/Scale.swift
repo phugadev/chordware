@@ -114,6 +114,11 @@ public struct Scale: Hashable, Sendable, Identifiable {
         }
     }
 
+    /// The scale's notes written in a naming system.
+    public func spelled(root: SpelledNote, naming: NoteNaming, key: Key? = nil) -> [String] {
+        spelled(root: root).map { naming.name($0, in: key) }
+    }
+
     /// How well this scale covers a chord.
     ///
     /// Only *essential* tones are required. Demanding every template tone would

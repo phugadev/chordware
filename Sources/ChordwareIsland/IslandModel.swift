@@ -96,6 +96,27 @@ public final class IslandModel {
     /// Strips the window back to the keyboard and the chord name, for
     /// recording and for playing to a room.
     public var presentationMode = false
+    /// How note and chord names are written.
+    public var naming: NoteNaming = IslandModel.loadNaming() { didSet { IslandModel.store(naming) } }
+    /// Colour held keys by their role in the chord, rather than all alike.
+    public var roleColors = IslandModel.loadRoleColors() { didSet { IslandModel.store(roleColors: roleColors) } }
+
+    private static let namingKey = "ChordwareNoteNaming"
+    private static let roleColorsKey = "ChordwareRoleColors"
+
+    private static func loadNaming() -> NoteNaming {
+        UserDefaults.standard.string(forKey: namingKey)
+            .flatMap(NoteNaming.init(rawValue:)) ?? .letters
+    }
+    private static func store(_ naming: NoteNaming) {
+        UserDefaults.standard.set(naming.rawValue, forKey: namingKey)
+    }
+    private static func loadRoleColors() -> Bool {
+        UserDefaults.standard.object(forKey: roleColorsKey) as? Bool ?? true
+    }
+    private static func store(roleColors: Bool) {
+        UserDefaults.standard.set(roleColors, forKey: roleColorsKey)
+    }
 
     /// Filled by the generation engine; empty until then.
     public var suggestions: [ChordSuggestion] = []
@@ -112,23 +133,21 @@ public final class IslandModel {
     /// correctly, and for teaching or screen recording the single note is
     /// exactly what the viewer needs to see.
     public var displaySymbol: String {
-        if let chord { return chord.symbol(unicode: true) }
+        if let chord { return chord.symbol(naming: naming, in: key, unicode: true) }
         switch heldNotes.count {
         case 0: return "\u{2014}"
         case 1:
-            let pc = PitchClass(heldNotes[0])
-            return SpelledNote.natural(pc, preferFlats: key?.preferFlats ?? false)
-                .name(unicode: true)
+            return naming.name(PitchClass(heldNotes[0]), in: key, unicode: true)
         default:
             let names = heldNotes.sorted().map {
-                SpelledNote.natural(PitchClass($0), preferFlats: key?.preferFlats ?? false).name(unicode: true)
+                naming.name(PitchClass($0), in: key, unicode: true)
             }
             return names.joined(separator: "\u{2009}\u{2013}\u{2009}")
         }
     }
 
     public var displayDetail: String {
-        if let chord { return chord.fullName }
+        if let chord { return chord.fullName(naming: naming, in: key) }
         switch heldNotes.count {
         case 0: return "play something"
         case 1: return "single note \u{00B7} \(MIDINote.name(heldNotes[0]))"

@@ -10,8 +10,12 @@ import SwiftUI
 /// use to read a keyboard.
 public struct MiniPiano: View {
     public var heldNotes: [Int]
-    /// Notes belonging to the current scale, marked with a dot beneath the key.
-    public var scaleNotes: Set<PitchClass>
+    /// How held keys are named.
+    public var naming: NoteNaming
+    /// The key, needed when names are relative to it.
+    public var key: Key?
+    /// Colour held keys by their role rather than all alike.
+    public var usesRoleColors: Bool
     public var lowNote: Int
     public var octaves: Int
     /// Label each C, so the octave you are looking at is unambiguous.
@@ -32,14 +36,19 @@ public struct MiniPiano: View {
     /// Sizing it to each voicing looks fine in a still and is horrible in
     /// motion: every chord change resizes the whole keyboard, so the eye has to
     /// re-find middle C constantly.
-    public init(heldNotes: [Int], scaleNotes: Set<PitchClass> = [],
+    public init(heldNotes: [Int],
                 lowNote: Int? = nil, octaves: Int? = nil,
                 showsOctaveLabels: Bool = false,
                 namesHeldNotes: Bool = false,
                 chord: Chord? = nil,
-                velocities: [Int: Int] = [:]) {
+                velocities: [Int: Int] = [:],
+                naming: NoteNaming = .letters,
+                key: Key? = nil,
+                usesRoleColors: Bool = true) {
         self.heldNotes = heldNotes
-        self.scaleNotes = scaleNotes
+        self.naming = naming
+        self.key = key
+        self.usesRoleColors = usesRoleColors
         self.showsOctaveLabels = showsOctaveLabels
         self.namesHeldNotes = namesHeldNotes
         self.chord = chord
@@ -64,7 +73,9 @@ public struct MiniPiano: View {
             // exactly like a rendering fault sitting next to every C. Scale
             // membership is a dot instead, which is clearly deliberate.
             func heldColor(_ note: Int) -> Color {
-                let base = IslandTheme.roleColor(chord?.role(of: PitchClass(note)))
+                let base = usesRoleColors
+                    ? IslandTheme.roleColor(chord?.role(of: PitchClass(note)))
+                    : IslandTheme.accent
                 guard let velocity = velocities[note] else { return base }
                 // Never below half: a softly played note must still read as
                 // clearly pressed, not as a key that failed to draw.
@@ -91,28 +102,14 @@ public struct MiniPiano: View {
             }
 
             let whiteWidth = layout.whiteKeys.first?.rect.width ?? 0
-            let dotSize = max(3.0, min(5.0, whiteWidth * 0.22))
-
-            if !scaleNotes.isEmpty, size.height >= 40 {
-                for key in layout.keys where scaleNotes.contains(PitchClass(key.note)) {
-                    guard !held.contains(key.note) else { continue }
-                    // A C already carries its octave label; a dot on top of it
-                    // is two marks fighting for the same few pixels.
-                    if showsOctaveLabels, !key.isBlack, PitchClass(key.note).value == 0 { continue }
-                    let y = key.isBlack ? key.rect.maxY - dotSize * 1.8 : size.height - dotSize * 3.2
-                    let dot = CGRect(x: key.rect.midX - dotSize / 2, y: y,
-                                     width: dotSize, height: dotSize)
-                    context.fill(Path(ellipseIn: dot),
-                                 with: .color(key.isBlack
-                                              ? Color.white.opacity(0.38)
-                                              : Color.black.opacity(0.26)))
-                }
-            }
 
             if namesHeldNotes, whiteWidth >= 11 {
                 for key in layout.keys where held.contains(key.note) {
-                    let name = SpelledNote.natural(PitchClass(key.note),
-                                                   preferFlats: true).name(unicode: true)
+                    // Prefer the chord's own spelling, so a keyboard label and
+                    // the note list cannot disagree about Bb versus A#.
+                    let spelling = chord?.spellingByPitchClass[PitchClass(key.note).value]
+                    let name = spelling.map { naming.name($0, in: self.key, unicode: true) }
+                        ?? naming.name(PitchClass(key.note), in: self.key, unicode: true)
                     let text = Text(name)
                         .font(.system(size: min(11, whiteWidth * 0.7),
                                       weight: .bold, design: .rounded))
@@ -125,8 +122,14 @@ public struct MiniPiano: View {
             guard showsOctaveLabels, size.height >= 40 else { return }
             for key in layout.whiteKeys where PitchClass(key.note).value == 0 {
                 guard !held.contains(key.note) else { continue }
-                let text = Text(MIDINote.name(key.note))
-                    .font(.system(size: min(9, key.rect.width * 0.62),
+                // Octave labels stay absolute landmarks, so a relative system
+                // falls back to letters here.
+                let label = naming == .scaleDegrees
+                    ? MIDINote.name(key.note)
+                    : naming.name(PitchClass(key.note), in: self.key, unicode: true)
+                        + "\(MIDINote.octave(key.note))"
+                let text = Text(label)
+                    .font(.system(size: min(9, key.rect.width * 0.55),
                                   weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.black.opacity(0.42))
                 context.draw(text, at: CGPoint(x: key.rect.midX, y: size.height - 9),

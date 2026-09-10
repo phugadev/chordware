@@ -57,6 +57,38 @@ public struct Chord: Hashable, Sendable, CustomStringConvertible {
 
     public var description: String { symbol() }
 
+    /// The chord symbol written in a chosen naming system. Only the root and
+    /// bass change; the quality suffix is the same in every system.
+    public func symbol(naming: NoteNaming, in key: Key? = nil, unicode: Bool = false) -> String {
+        let rootText = naming.name(root, in: key, unicode: unicode)
+        guard let bass else { return rootText + quality.symbol }
+        let suffix = quality.symbol.contains("/") ? "(\(quality.symbol))" : quality.symbol
+        return rootText + suffix + "/" + naming.name(bass, in: key, unicode: unicode)
+    }
+
+    /// Correct spelling for each pitch class in this chord, so a keyboard can
+    /// label a held key the way the chord spells it rather than guessing.
+    public var spellingByPitchClass: [Int: SpelledNote] {
+        var map: [Int: SpelledNote] = [:]
+        for (_, note) in spelledTones { map[note.pitchClass.value] = note }
+        if let bass { map[bass.pitchClass.value] = bass }
+        return map
+    }
+
+    public func fullName(naming: NoteNaming, in key: Key? = nil) -> String {
+        var text = "\(naming.name(root, in: key)) \(quality.name)"
+        if let bass {
+            let ordinals = ["root position", "first inversion", "second inversion",
+                            "third inversion", "fourth inversion", "fifth inversion"]
+            if let inv = inversion, inv > 0, inv < ordinals.count {
+                text += ", \(ordinals[inv])"
+            } else {
+                text += " over \(naming.name(bass, in: key))"
+            }
+        }
+        return text
+    }
+
     /// Spoken description used in the island's expanded state.
     public var fullName: String {
         var text = "\(root.name()) \(quality.name)"
