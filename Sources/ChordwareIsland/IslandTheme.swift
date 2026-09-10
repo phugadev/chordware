@@ -49,5 +49,15 @@ public enum IslandTheme {
     }
 
     public static let spring = Animation.spring(response: 0.38, dampingFraction: 0.78)
+
+    /// Shared by the window resize and the content, so the two cannot drift.
+    ///
+    /// AppKit picks its own duration for an animated setFrame, scaled to how
+    /// much the window changed size. Left alone it runs on a different clock
+    /// and a different curve from the SwiftUI animation inside it, and the
+    /// transition reads as two things happening near each other rather than one
+    /// thing moving.
+    public static let modeTransitionDuration: Double = 0.30
+    public static let modeTransition = Animation.easeInOut(duration: modeTransitionDuration)
     public static let quickSpring = Animation.spring(response: 0.26, dampingFraction: 0.82)
 }

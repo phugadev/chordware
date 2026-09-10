@@ -62,6 +62,7 @@ public enum IslandRenderer {
             }
         }
         written += try renderReveal(to: directory, geometry: geometry)
+        written += try renderModeTransition(to: directory)
         if let url = try renderCompanion(to: directory.appendingPathComponent("companion.png")) {
             written.append(url)
         }
@@ -110,7 +111,12 @@ public enum IslandRenderer {
         if let notes {
             model.presentNotesOnly(notes, atMs: 0)
         }
-        let view = CompanionView(model: model).frame(width: size.width, height: size.height)
+        // Clip like a window does: ImageRenderer otherwise sizes to the
+        // content's real layout, so overflow escapes the frame and the
+        // render stops resembling what is on screen.
+        let view = CompanionView(model: model)
+            .frame(width: size.width, height: size.height, alignment: .top)
+            .clipped()
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2
         guard let image = renderer.nsImage,
@@ -119,6 +125,28 @@ public enum IslandRenderer {
               let png = rep.representation(using: .png, properties: [:]) else { return nil }
         try png.write(to: url)
         return url
+    }
+
+    /// Render the companion part-way between its two window sizes.
+    ///
+    /// The transition is driven by the window's height, so rendering at
+    /// intermediate heights shows exactly what it passes through -- and proves
+    /// the panel is clipped away rather than faded out.
+    public static func renderModeTransition(to directory: URL) throws -> [URL] {
+        var written: [URL] = []
+        let full = CGSize(width: 900, height: 600)
+        let compact = CGSize(width: 810, height: 236)
+        for (label, t) in [("00", 0.0), ("40", 0.4), ("75", 0.75), ("100", 1.0)] {
+            let size = CGSize(width: full.width + (compact.width - full.width) * t,
+                              height: full.height + (compact.height - full.height) * t)
+            // Past the halfway point the header has taken its smaller sizes.
+            let mode: DisplayMode = t > 0.5 ? .presentation : .companion
+            let url = directory.appendingPathComponent("mode-\(label).png")
+            if let out = try renderCompanion(to: url, mode: mode, size: size) {
+                written.append(out)
+            }
+        }
+        return written
     }
 
     /// Render the expansion part-way open, to show that the panel is revealed

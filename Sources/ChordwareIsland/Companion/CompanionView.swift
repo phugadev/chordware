@@ -16,62 +16,108 @@ public struct CompanionView: View {
         self.onClose = onClose
     }
 
-    public var body: some View {
-        Group {
-            if model.isCompactLayout { presentation } else { full }
-        }
-        .background(IslandTheme.background)
-        .preferredColorScheme(.dark)
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: model.displayMode)
-    }
+    // Sizes differ between modes; the structure does not.
+    private var symbolSize: CGFloat { model.isCompactLayout ? 40 : 60 }
+    private var numeralSize: CGFloat { model.isCompactLayout ? 22 : 38 }
+    private var keyboardHeight: CGFloat { model.isCompactLayout ? 108 : 132 }
 
-    private var full: some View {
+    /// Natural height of the panel below the keyboard.
+    private static let panelHeight: CGFloat = 300
+
+    public var body: some View {
         VStack(spacing: 0) {
             header
             Divider().overlay(IslandTheme.hairline)
-            keyboard
+            keyboardView(height: keyboardHeight)
+                .padding(.horizontal, model.isCompactLayout ? 16 : 20)
+                .padding(.vertical, model.isCompactLayout ? 12 : 18)
+
+            // The panel is *revealed by the window*, not swapped for another
+            // view. Building a different tree per mode gives each its own view
+            // identity, so SwiftUI cross-fades them -- the panel dissolves
+            // while the window resizes underneath it, on a different curve.
+            // Holding it at its natural height inside a flexible clipping frame
+            // means shrinking the window slides it away instead.
+            panel
+                .frame(height: Self.panelHeight, alignment: .top)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .clipped()
+        }
+        // Anchor to the top and clip. Mid-resize the content is briefly taller
+        // than the window, and a centred stack loses the same amount off both
+        // ends -- which takes the chord name with it. Overflow has to fall off
+        // the bottom, where the panel is, because that is the part being
+        // dismissed.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .clipped()
+        .background(IslandTheme.background)
+        .preferredColorScheme(.dark)
+        .animation(IslandTheme.modeTransition, value: model.displayMode)
+    }
+
+    /// One header for both modes. Only the type sizes and two collapsing rows
+    /// differ, so nothing has to move across the window when the mode changes.
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(model.displaySymbol)
+                    .animatableFont(size: symbolSize)
+                    .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                    .contentTransition(.numericText())
+                if !model.isCompactLayout {
+                    Text(model.displayDetail)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(IslandTheme.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 12)
+            VStack(alignment: .trailing, spacing: 4) {
+                if let numeral = model.romanNumeral {
+                    Text(numeral.symbol(naming: model.naming))
+                        .animatableFont(size: numeralSize)
+                        .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
+                        .lineLimit(1)
+                    if !model.isCompactLayout {
+                        Text(numeral.explanation ?? numeral.function.name)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(IslandTheme.tertiary)
+                            .lineLimit(1)
+                    }
+                }
+                if let key = model.key {
+                    HStack(spacing: 4) {
+                        if model.lockedKey != nil {
+                            // Say so, or a fixed key looks like a detector that
+                            // has stopped responding.
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(IslandTheme.tertiary)
+                        }
+                        Text(model.isCompactLayout
+                             ? key.shortName(naming: model.naming)
+                             : "key of \(key.name(naming: model.naming))")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(IslandTheme.secondary)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, model.isCompactLayout ? 20 : 24)
+        .padding(.top, model.isCompactLayout ? 14 : 20)
+        .padding(.bottom, model.isCompactLayout ? 8 : 16)
+    }
+
+    /// Everything below the keyboard, at its natural height.
+    private var panel: some View {
+        VStack(spacing: 0) {
             Divider().overlay(IslandTheme.hairline)
             detail
             legend
             Spacer(minLength: 0)
             footer
-        }
-    }
-
-    /// The minimum needed to see and talk about what is being played.
-    ///
-    /// Deliberately the *same* keyboard as the companion view, at the same key
-    /// size. Presentation mode is less interface, not a bigger one; blowing the
-    /// keys up to fill a window turns the instrument into something that no
-    /// longer looks like a piano.
-    private var presentation: some View {
-        VStack(spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 14) {
-                Text(model.displaySymbol)
-                    .font(.system(size: 40, weight: .semibold, design: .rounded))
-                    .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .contentTransition(.numericText())
-                if let numeral = model.romanNumeral {
-                    Text(numeral.symbol(naming: model.naming))
-                        .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
-                        .lineLimit(1)
-                }
-                Spacer(minLength: 8)
-                if let key = model.key {
-                    Text(key.shortName(naming: model.naming))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 14)
-
-            keyboardView(height: 108)
-                .padding(.horizontal, 16)
-                .padding(.bottom, 16)
         }
     }
 
@@ -92,65 +138,6 @@ public struct CompanionView: View {
             .opacity(model.isSounding ? 1 : 0.55)
             .animation(.easeOut(duration: 0.35), value: model.isSounding)
     }
-
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(model.displaySymbol)
-                    .font(.system(size: 60, weight: .semibold, design: .rounded))
-                    .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .contentTransition(.numericText())
-                Text(model.displayDetail)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(IslandTheme.secondary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 12)
-            VStack(alignment: .trailing, spacing: 4) {
-                if let numeral = model.romanNumeral {
-                    Text(numeral.symbol(naming: model.naming))
-                        .font(.system(size: 38, weight: .semibold, design: .rounded))
-                        .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
-                        .lineLimit(1)
-                    Text(numeral.explanation ?? numeral.function.name)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
-                        .lineLimit(1)
-                }
-                if let key = model.key {
-                    HStack(spacing: 4) {
-                        if model.lockedKey != nil {
-                            // Say so, or a locked key looks like a detector
-                            // that has stopped responding.
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(IslandTheme.tertiary)
-                        }
-                        Text("key of \(key.name(naming: model.naming))")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(IslandTheme.secondary)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 20)
-        .padding(.bottom, 16)
-    }
-
-    // MARK: - Keyboard
-
-    private var keyboard: some View {
-        keyboardView(height: 132)
-            .padding(.horizontal, 20)
-            .padding(.vertical, 18)
-    }
-
-    // MARK: - Detail
 
     private var detail: some View {
         HStack(alignment: .top, spacing: 28) {

@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 /// Owns the companion window: a normal, resizable, movable window that can live
@@ -73,16 +74,29 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
                                 width: Self.compactSize.width,
                                 height: Self.compactSize.height)
             window.minSize = NSSize(width: 520, height: 180)
-            window.setFrame(target, display: true, animate: true)
+            resize(window, to: target)
         } else {
             window.minSize = NSSize(width: 700, height: 520)
-            if let expandedFrame {
-                window.setFrame(expandedFrame, display: true, animate: true)
-            }
+            if let expandedFrame { resize(window, to: expandedFrame) }
             expandedFrame = nil
         }
     }
 
+
+    /// Resize on the same clock as the content inside.
+    ///
+    /// `setFrame(animate: true)` picks its own duration from how much the
+    /// window changed size, so the frame and the SwiftUI content it holds run
+    /// on different curves for different lengths of time. Driving it through an
+    /// animation group makes them one movement.
+    private func resize(_ window: NSWindow, to frame: NSRect) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = IslandTheme.modeTransitionDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            context.allowsImplicitAnimation = true
+            window.animator().setFrame(frame, display: true)
+        }
+    }
 
     public func setAlwaysOnTop(_ onTop: Bool) {
         isAlwaysOnTop = onTop
