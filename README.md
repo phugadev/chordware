@@ -38,8 +38,8 @@ So Chordware does audio as well as MIDI, and treats naming a chord as the
 - **Cadence detection** as it happens.
 - **Progression capture** with a running timeline.
 - **92 scales and modes**, with the ones that fit the current chord ranked.
-- **MIDI passthrough** through a virtual port named `Chordware`, so it sits
-  inline with your DAW without taking the controller away from it.
+- **MIDI passthrough** through a virtual port named `Chordware`, off by
+  default — see below.
 - **A CLI** over the same engine, so all of it is scriptable.
 
 ## Requirements
@@ -89,6 +89,20 @@ Honestly: well on piano, pads, clean guitar and mixes with clear harmony. Less
 well on dense, distorted or heavily percussive material, where the harmony is
 genuinely ambiguous in the spectrum. It is a musical assistant, not a
 transcription oracle. MIDI input has no such limits — it is exact.
+
+## Passthrough, and why it is off
+
+Chordware publishes a virtual MIDI source called `Chordware`. Turning on
+**Send MIDI to DAW** in the menu forwards your keyboard through it, so the DAW
+can take its input from Chordware.
+
+Leave it off unless you also tell your DAW to stop listening to the keyboard
+directly. Logic and most DAWs listen to *all* MIDI inputs by default, so with
+passthrough on every note arrives twice — once from the keyboard, once
+forwarded — and two voices a few milliseconds apart comb-filter into something
+that sounds broken.
+
+Chordware does not need passthrough to analyse anything. It listens either way.
 
 ## The CLI
 

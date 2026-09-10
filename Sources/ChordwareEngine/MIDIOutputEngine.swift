@@ -13,7 +13,15 @@ public final class MIDIOutputEngine {
 
     public private(set) var isRunning = false
     /// Forward everything arriving from the input engine to the virtual source.
-    public var passthrough = true
+    ///
+    /// Off by default, and it must stay that way. A DAW typically listens to
+    /// *all* MIDI inputs, so with passthrough on it receives every note twice:
+    /// once straight from the keyboard and once forwarded by Chordware. Two
+    /// voices a few milliseconds apart comb-filter, and the track sounds
+    /// broken. Passthrough is only correct when the DAW has been pointed at
+    /// Chordware instead of the keyboard, which is a deliberate choice the
+    /// player has to make.
+    public var passthrough = false
 
     /// Unique ID of the published source, so the input engine can refuse to
     /// listen to it.

@@ -11,17 +11,20 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         public var toggleAlwaysOnTop: () -> Void
         public var chooseMIDI: () -> Void
         public var chooseAudio: () -> Void
+        public var togglePassthrough: () -> Void
         public var resetProgression: () -> Void
 
         public init(openCompanion: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
                     chooseMIDI: @escaping () -> Void,
                     chooseAudio: @escaping () -> Void,
+                    togglePassthrough: @escaping () -> Void,
                     resetProgression: @escaping () -> Void) {
             self.openCompanion = openCompanion
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
             self.chooseMIDI = chooseMIDI
             self.chooseAudio = chooseAudio
+            self.togglePassthrough = togglePassthrough
             self.resetProgression = resetProgression
         }
     }
@@ -30,6 +33,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentSourceIsAudio: () -> Bool = { false }
     public var currentAlwaysOnTop: () -> Bool = { false }
     public var currentChordSummary: () -> String? = { nil }
+    public var currentPassthrough: () -> Bool = { false }
 
     private var statusItem: NSStatusItem?
     private let actions: Actions
@@ -76,6 +80,17 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         add(menu, "Listen to Audio", key: "", checked: audio) { [weak self] in
             self?.actions.chooseAudio()
         }
+
+        let passthrough = NSMenuItem(title: "Send MIDI to DAW (passthrough)",
+                                     action: #selector(fire(_:)), keyEquivalent: "")
+        passthrough.target = self
+        passthrough.representedObject = Box { [weak self] in self?.actions.togglePassthrough() }
+        passthrough.state = currentPassthrough() ? .on : .off
+        // Doubled notes are the classic symptom of turning this on without
+        // also telling the DAW to stop listening to the keyboard directly.
+        passthrough.toolTip = "Only turn this on if your DAW listens to Chordware "
+            + "instead of your keyboard, or you will hear every note twice."
+        menu.addItem(passthrough)
         menu.addItem(.separator())
 
         add(menu, "Clear Progression", key: "k") { [weak self] in self?.actions.resetProgression() }

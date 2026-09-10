@@ -87,6 +87,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             toggleAlwaysOnTop: { companion.setAlwaysOnTop(!companion.isAlwaysOnTop) },
             chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
             chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
+            togglePassthrough: { [weak self] in
+                guard let out = self?.bridge?.session.midiOut else { return }
+                out.passthrough.toggle()
+                if !out.passthrough { out.allNotesOff() }
+            },
             resetProgression: { [weak self] in
                 self?.model.progression.clear()
                 self?.model.clearChord()
@@ -94,6 +99,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ))
         menuBar.currentSourceIsAudio = { [weak self] in self?.bridge?.session.source == .audio }
         menuBar.currentAlwaysOnTop = { companion.isAlwaysOnTop }
+        menuBar.currentPassthrough = { [weak self] in self?.bridge?.session.midiOut.passthrough ?? false }
         menuBar.currentChordSummary = { [weak self] in
             guard let chord = self?.model.chord else { return nil }
             guard let key = self?.model.key else { return chord.symbol() }
