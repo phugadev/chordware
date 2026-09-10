@@ -13,6 +13,15 @@ public struct ChordCandidate: Sendable, Hashable {
 
     public var isExact: Bool { missing.isEmpty && extras.isEmpty }
     public var symbol: String { chord.symbol() }
+
+    public init(chord: Chord, confidence: Double, score: Double,
+                missing: [Interval] = [], extras: [PitchClass] = []) {
+        self.chord = chord
+        self.confidence = confidence
+        self.score = score
+        self.missing = missing
+        self.extras = extras
+    }
 }
 
 /// Turns a set of sounding notes into ranked chord readings.

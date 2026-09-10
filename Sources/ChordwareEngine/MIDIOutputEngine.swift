@@ -9,9 +9,15 @@ import Foundation
 /// controller, and chords generated from the island arrive on the same port.
 @MainActor
 public final class MIDIOutputEngine {
+    public static let virtualSourceName = "Chordware"
+
     public private(set) var isRunning = false
     /// Forward everything arriving from the input engine to the virtual source.
     public var passthrough = true
+
+    /// Unique ID of the published source, so the input engine can refuse to
+    /// listen to it.
+    public private(set) var virtualSourceUID: Int32?
 
     private var client = MIDIClientRef()
     private var source = MIDIEndpointRef()
@@ -25,8 +31,13 @@ public final class MIDIOutputEngine {
         var status = MIDIClientCreateWithBlock("Chordware Out" as CFString, &client, nil)
         guard status == noErr else { throw MIDIEngineError.clientFailed(status) }
 
-        status = MIDISourceCreateWithProtocol(client, "Chordware" as CFString, ._1_0, &source)
+        status = MIDISourceCreateWithProtocol(client, Self.virtualSourceName as CFString, ._1_0, &source)
         guard status == noErr else { throw MIDIEngineError.virtualSourceFailed(status) }
+
+        var uid: Int32 = 0
+        if MIDIObjectGetIntegerProperty(source, kMIDIPropertyUniqueID, &uid) == noErr {
+            virtualSourceUID = uid
+        }
         isRunning = true
     }
 
@@ -35,6 +46,7 @@ public final class MIDIOutputEngine {
         allNotesOff()
         MIDIEndpointDispose(source)
         MIDIClientDispose(client)
+        virtualSourceUID = nil
         isRunning = false
     }
 

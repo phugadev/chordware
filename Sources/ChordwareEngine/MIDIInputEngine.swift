@@ -10,6 +10,13 @@ public struct MIDIEndpoint: Identifiable, Hashable, Sendable {
     public let isControlSurface: Bool
 
     public var displayName: String { name }
+
+    public init(id: Int32, name: String, manufacturer: String, isControlSurface: Bool) {
+        self.id = id
+        self.name = name
+        self.manufacturer = manufacturer
+        self.isControlSurface = isControlSurface
+    }
 }
 
 /// Reads notes from attached MIDI hardware.
@@ -18,6 +25,13 @@ public final class MIDIInputEngine {
     public private(set) var endpoints: [MIDIEndpoint] = []
     /// Endpoints to listen to. Empty means "choose automatically".
     public var selection: Set<Int32> = [] { didSet { reconnect() } }
+    /// Endpoints that must never be listened to, whatever the selection says.
+    ///
+    /// Chordware publishes its own virtual source for passthrough, and that
+    /// source appears in the system's source list like any other. Listening to
+    /// it feeds every forwarded message straight back into the input, which
+    /// forwards it again -- a loop that floods the DAW within a second.
+    public var excluded: Set<Int32> = [] { didSet { refreshEndpoints() } }
 
     public var onMessage: ((MIDIMessage) -> Void)?
     public var onEndpointsChanged: (([MIDIEndpoint]) -> Void)?
@@ -109,15 +123,28 @@ public final class MIDIInputEngine {
                 isControlSurface: Self.isControlSurface(name: name)
             ))
         }
-        endpoints = found
-        onEndpointsChanged?(found)
+        endpoints = found.filter { !excluded.contains($0.id) }
+        onEndpointsChanged?(endpoints)
         reconnect()
     }
 
     /// Endpoints actually listened to for the current selection.
     public var activeEndpoints: [MIDIEndpoint] {
-        selection.isEmpty ? endpoints.filter { !$0.isControlSurface }
-                          : endpoints.filter { selection.contains($0.id) }
+        Self.chooseEndpoints(from: endpoints, selection: selection, excluded: excluded)
+    }
+
+    /// Which endpoints to listen to. Pure, so both the feedback exclusion and
+    /// the control-surface default are testable without hardware.
+    nonisolated public static func chooseEndpoints(from all: [MIDIEndpoint],
+                                       selection: Set<Int32>,
+                                       excluded: Set<Int32>) -> [MIDIEndpoint] {
+        let available = all.filter { !excluded.contains($0.id) }
+        guard selection.isEmpty else {
+            return available.filter { selection.contains($0.id) }
+        }
+        // With no explicit choice, listen to instruments but not control
+        // surfaces: those send notes for transport buttons and faders.
+        return available.filter { !$0.isControlSurface }
     }
 
     private func reconnect() {

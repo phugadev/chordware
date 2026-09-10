@@ -46,13 +46,13 @@ let package = Package(
         // under the proper name.
         .executableTarget(
             name: "ChordwareApp",
-            dependencies: ["ChordwareCore", "ChordwareIsland"],
+            dependencies: ["ChordwareCore", "ChordwareIsland", "ChordwareEngine"],
             path: "Sources/ChordwareApp",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
             name: "chordware",
-            dependencies: ["ChordwareCore"],
+            dependencies: ["ChordwareCore", "ChordwareEngine"],
             path: "Sources/chordware",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

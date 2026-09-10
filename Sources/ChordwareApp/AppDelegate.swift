@@ -1,5 +1,6 @@
 import AppKit
 import ChordwareCore
+import ChordwareEngine
 import ChordwareIsland
 
 /// Entry point. Uses `@main` rather than a `main.swift` so the whole launch
@@ -19,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private let model = IslandModel()
     private var controller: IslandController?
+    private var bridge: SessionBridge?
     private var demo: DemoDriver?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -80,12 +82,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in controller.screenChanged() }
         }
 
-        // Until the MIDI and audio engines land, drive the island from a
-        // scripted progression so every state can be seen and tuned.
-        if !arguments.contains("--no-demo") {
+        // `--demo` replays a scripted progression, which is how the island is
+        // tuned and screenshotted. Everything else runs on live input.
+        if arguments.contains("--demo") {
             let driver = DemoDriver(model: model, controller: controller)
             driver.start(stepping: arguments.contains("--step"))
             demo = driver
+        } else if !arguments.contains("--no-input") {
+            let bridge = SessionBridge(model: model, controller: controller)
+            if arguments.contains("--audio") { bridge.session.source = .audio }
+            if let index = arguments.firstIndex(of: "--audio-device"), index + 1 < arguments.count {
+                bridge.session.source = .audio
+                bridge.session.startAudio(deviceID: arguments[index + 1])
+            }
+            bridge.start()
+            self.bridge = bridge
         }
 
         // `--animate` walks the states on a timer with the real spring, so the
@@ -128,6 +139,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // Release anything still sounding so a quit mid-chord cannot leave a
+        // note hanging in the DAW.
+        bridge?.stop()
         controller?.stop()
     }
 }

@@ -158,3 +158,42 @@ func runMIDITests(_ t: Harness) {
         }
     }
 }
+
+func runMIDIRoutingTests(_ t: Harness) {
+    func endpoint(_ id: Int32, _ name: String, control: Bool = false) -> MIDIEndpoint {
+        MIDIEndpoint(id: id, name: name, manufacturer: "Test", isControlSurface: control)
+    }
+
+    t.suite("MIDI routing") {
+        let keyboard = endpoint(1, "KL Essential 49 mk3 MIDI")
+        let dinThru = endpoint(2, "KL Essential 49 mk3 DINTHRU")
+        let mcu = endpoint(3, "KL Essential 49 mk3 MCU/HUI", control: true)
+        let ownSource = endpoint(99, "Chordware")
+        let all = [keyboard, dinThru, mcu, ownSource]
+
+        t.test("our own virtual source is never listened to") {
+            // Chordware publishes "Chordware" for passthrough. Listening to it
+            // feeds every forwarded message back into the input, which forwards
+            // it again -- a loop that floods the DAW within a second.
+            let chosen = MIDIInputEngine.chooseEndpoints(from: all, selection: [], excluded: [99])
+            t.check(!chosen.contains { $0.id == 99 }, "excluded by default selection")
+
+            // Even an explicit selection must not be able to create the loop.
+            let forced = MIDIInputEngine.chooseEndpoints(from: all, selection: [99], excluded: [99])
+            t.check(forced.isEmpty, "excluded even when explicitly selected")
+        }
+
+        t.test("control surfaces are skipped unless asked for") {
+            let auto = MIDIInputEngine.chooseEndpoints(from: all, selection: [], excluded: [99])
+            t.equal(auto.map(\.id), [1, 2], "MCU/HUI left out of the automatic choice")
+
+            let explicit = MIDIInputEngine.chooseEndpoints(from: all, selection: [3], excluded: [99])
+            t.equal(explicit.map(\.id), [3], "but available when chosen deliberately")
+        }
+
+        t.test("an explicit selection wins over the default") {
+            let chosen = MIDIInputEngine.chooseEndpoints(from: all, selection: [1], excluded: [99])
+            t.equal(chosen.map(\.id), [1], "only the keyboard")
+        }
+    }
+}

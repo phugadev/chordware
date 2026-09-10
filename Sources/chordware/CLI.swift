@@ -11,6 +11,7 @@ enum CLI {
         case "chord", "c": Describe.chord(rest)
         case "scales", "s": Describe.scales(rest)
         case "key", "k": Describe.key(rest)
+        case "devices", "d": MainActor.assumeIsolated { Devices.list() }
         case "version", "--version", "-v": print("chordware \(ChordwareVersion.current)")
         case "help", "--help", "-h": printUsage()
         default:
@@ -35,6 +36,7 @@ enum CLI {
           chord <symbol>           describe one chord: tones, intervals, scales
           scales [query]           browse the scale library
           key <notes|chords>       estimate the key
+          devices                  list MIDI and audio inputs
           version                  print the version
 
         \(Style.bold("EXAMPLES"))
