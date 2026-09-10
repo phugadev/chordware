@@ -33,13 +33,24 @@ public struct PianoLayout: Equatable, Sendable {
         (1, 1), (3, 2), (6, 4), (8, 5), (10, 6),
     ]
 
-    public init(lowNote: Int, octaves: Int, size: CGSize) {
+    /// Widest a white key is allowed to get.
+    ///
+    /// Without a cap the keyboard stretches to whatever the window is, so the
+    /// same instrument becomes slabs in a wide window and slivers in a narrow
+    /// one. A piano has fixed proportions; the window is a view onto it, not a
+    /// thing that reshapes it.
+    public static let maxWhiteWidth: CGFloat = 26
+
+    public init(lowNote: Int, octaves: Int, size: CGSize,
+                maxWhiteWidth: CGFloat = PianoLayout.maxWhiteWidth) {
         self.lowNote = lowNote
         self.octaves = octaves
         self.size = size
         whiteCount = octaves * 7 + 1
 
-        let whiteWidth = size.width / CGFloat(whiteCount)
+        let whiteWidth = min(maxWhiteWidth, size.width / CGFloat(whiteCount))
+        // Centre what is drawn, rather than pinning it left with dead space.
+        let inset = (size.width - whiteWidth * CGFloat(whiteCount)) / 2
         let blackWidth = whiteWidth * 0.58
         let blackHeight = size.height * 0.62
 
@@ -51,14 +62,14 @@ public struct PianoLayout: Equatable, Sendable {
             keys.append(Key(
                 note: note,
                 isBlack: false,
-                rect: CGRect(x: CGFloat(index) * whiteWidth, y: 0,
+                rect: CGRect(x: inset + CGFloat(index) * whiteWidth, y: 0,
                              width: whiteWidth, height: size.height)
             ))
         }
         for octave in 0..<octaves {
             for black in Self.blackOffsets {
                 let note = lowNote + octave * 12 + black.semitone
-                let centre = CGFloat(octave * 7 + black.boundary) * whiteWidth
+                let centre = inset + CGFloat(octave * 7 + black.boundary) * whiteWidth
                 keys.append(Key(
                     note: note,
                     isBlack: true,

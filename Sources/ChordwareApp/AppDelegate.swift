@@ -92,6 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self else { return }
                 self.model.presentationMode.toggle()
                 if self.model.presentationMode { companion.show() }
+                companion.setCompact(self.model.presentationMode)
             },
             chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
             chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
@@ -138,6 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self else { return }
             self.model.presentationMode.toggle()
             if self.model.presentationMode { companion.show() }
+            companion.setCompact(self.model.presentationMode)
         }
         presentationHotKey.register(keyCode: UInt32(kVK_ANSI_P),
                                     modifiers: UInt32(cmdKey | optionKey | controlKey))

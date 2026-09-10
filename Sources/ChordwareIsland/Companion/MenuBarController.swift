@@ -149,11 +149,11 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         add(menu, "Refit Keyboard to Controller", key: "") { [weak self] in
             self?.actions.resetKeyboardRange()
         }
-        let panic = NSMenuItem(title: "All Notes Off", action: #selector(fire(_:)), keyEquivalent: ".")
+        let panic = NSMenuItem(title: "Panic (All Notes Off)", action: #selector(fire(_:)), keyEquivalent: ".")
         panic.keyEquivalentModifierMask = [.command]
         panic.target = self
         panic.representedObject = Box { [weak self] in self?.actions.panic() }
-        panic.toolTip = "Release every held note, for a stuck key or a pedal that never came up."
+        panic.toolTip = "Clears any key stuck lit and tells the MIDI port to release everything. For a Note Off that never arrived, or a pedal that never came up."
         menu.addItem(panic)
         menu.addItem(.separator())
         add(menu, "Quit Chordware", key: "q") { NSApp.terminate(nil) }

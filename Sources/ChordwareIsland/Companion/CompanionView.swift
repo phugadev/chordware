@@ -38,51 +38,59 @@ public struct CompanionView: View {
         }
     }
 
-    /// Everything stripped back to what a viewer needs: the chord, and the
-    /// hands. Meant for screen recording and for playing to a room, where the
-    /// analysis columns are noise competing with the person talking.
+    /// The minimum needed to see and talk about what is being played.
+    ///
+    /// Deliberately the *same* keyboard as the companion view, at the same key
+    /// size. Presentation mode is less interface, not a bigger one; blowing the
+    /// keys up to fill a window turns the instrument into something that no
+    /// longer looks like a piano.
     private var presentation: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .firstTextBaseline, spacing: 20) {
+        VStack(spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 14) {
                 Text(model.displaySymbol)
-                    .font(.system(size: 96, weight: .semibold, design: .rounded))
+                    .font(.system(size: 40, weight: .semibold, design: .rounded))
                     .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.35)
+                    .minimumScaleFactor(0.4)
                     .contentTransition(.numericText())
-                Spacer(minLength: 8)
                 if let numeral = model.romanNumeral {
                     Text(numeral.symbol(naming: model.naming))
-                        .font(.system(size: 52, weight: .semibold, design: .rounded))
+                        .font(.system(size: 22, weight: .semibold, design: .rounded))
                         .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
                         .lineLimit(1)
                 }
+                Spacer(minLength: 8)
                 if let key = model.key {
                     Text(key.shortName(naming: model.naming))
-                        .font(.system(size: 22, weight: .medium, design: .rounded))
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundStyle(IslandTheme.tertiary)
                 }
             }
-            .padding(.horizontal, 36)
-            .padding(.top, 28)
-            .padding(.bottom, 10)
+            .padding(.horizontal, 20)
+            .padding(.top, 14)
 
-            MiniPiano(heldNotes: model.heldNotes,
-                      lowNote: model.keyboardLowNote,
-                      octaves: model.keyboardOctaves,
-                      showsOctaveLabels: true,
-                      namesHeldNotes: true,
-                      chord: model.chord,
-                      velocities: model.velocities,
-                      naming: model.naming,
-                      key: model.key,
-                      usesRoleColors: model.roleColors)
-                .frame(maxHeight: .infinity)
-                .padding(.horizontal, 28)
-                .padding(.bottom, 28)
-                .opacity(model.isSounding ? 1 : 0.55)
-                .animation(.easeOut(duration: 0.35), value: model.isSounding)
+            keyboardView(height: 108)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
         }
+    }
+
+    /// One keyboard, shared by every mode. Modes differ in what surrounds it,
+    /// never in how the instrument itself is drawn.
+    private func keyboardView(height: CGFloat) -> some View {
+        MiniPiano(heldNotes: model.heldNotes,
+                  lowNote: model.keyboardLowNote,
+                  octaves: model.keyboardOctaves,
+                  showsOctaveLabels: true,
+                  namesHeldNotes: true,
+                  chord: model.chord,
+                  velocities: model.velocities,
+                  naming: model.naming,
+                  key: model.key,
+                  usesRoleColors: model.roleColors)
+            .frame(height: height)
+            .opacity(model.isSounding ? 1 : 0.55)
+            .animation(.easeOut(duration: 0.35), value: model.isSounding)
     }
 
     // MARK: - Header
@@ -128,23 +136,9 @@ public struct CompanionView: View {
     // MARK: - Keyboard
 
     private var keyboard: some View {
-        MiniPiano(heldNotes: model.heldNotes,
-                  lowNote: model.keyboardLowNote,
-                  octaves: model.keyboardOctaves,
-                  showsOctaveLabels: true,
-                  namesHeldNotes: true,
-                  chord: model.chord,
-                  velocities: model.velocities,
-                  naming: model.naming,
-                  key: model.key,
-                  usesRoleColors: model.roleColors)
-            .frame(height: 132)
+        keyboardView(height: 132)
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
-            // Fades rather than clears when you lift your hands, so the shape
-            // of what you played stays readable for a moment.
-            .opacity(model.isSounding ? 1 : 0.55)
-            .animation(.easeOut(duration: 0.35), value: model.isSounding)
     }
 
     // MARK: - Detail

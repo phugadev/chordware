@@ -283,21 +283,36 @@ func runKeyboardRangeTests(_ t: Harness) {
             t.equal(r.lowNote, 24, "now starts at C1")
         }
 
-        t.test("octave shifts do not accumulate into a huge keyboard") {
-            // The reported bug: using the controller's octave buttons taught
-            // the display a span covering everything, shrinking the keys.
+        t.test("an octave shift slides the window instead of resizing it") {
+            // Pressing octave-up on a controller changes which notes arrive,
+            // not what instrument is being played. The number of keys must stay
+            // put; only the range they cover moves.
             let r = range()
             let now = Date()
             r.observe([36, 40, 43], now: now)
-            r.observe([84, 88, 91], now: now)
-            t.check(r.octaves <= 6, "capped while wandering, got \(r.octaves)")
+            let span = r.octaves
 
-            // Settle after the early material has aged out of the window.
-            let later = now.addingTimeInterval(60)
-            r.observe([60, 64, 67], now: later)
-            t.check(r.settle(now: later), "re-fits once things are quiet")
-            t.check(r.octaves <= 3, "tightened around recent playing, got \(r.octaves)")
-            t.check(r.lowNote <= 60 && r.highNote >= 67, "still covers what is played")
+            r.observe([72, 76, 79], now: now.addingTimeInterval(1))
+            t.equal(r.octaves, span, "same number of keys after shifting up")
+            t.check(r.lowNote <= 72 && r.highNote >= 79, "and the new notes are visible")
+
+            r.observe([36, 40, 43], now: now.addingTimeInterval(2))
+            t.equal(r.octaves, span, "and after shifting back down")
+        }
+
+        t.test("the span only widens for a reach that genuinely needs it") {
+            let r = range()
+            let now = Date()
+            // Two hands five octaves apart cannot be shown in four.
+            r.observe([24, 96], now: now)
+            t.check(r.octaves > 4, "widened for a spread that does not fit")
+            t.check(r.lowNote <= 24 && r.highNote >= 96, "both ends visible")
+
+            // Once that is out of the window, it returns to the usual span.
+            let later = now.addingTimeInterval(90)
+            r.observe([60, 64], now: later)
+            r.settle(now: later)
+            t.equal(r.octaves, 4, "back to a normal keyboard")
         }
 
         t.test("never narrower than two octaves") {
@@ -306,6 +321,7 @@ func runKeyboardRangeTests(_ t: Harness) {
             r.observe([60], now: now)
             r.settle(now: now)
             t.check(r.octaves >= 2, "a single note still gives a usable keyboard")
+            t.check(r.lowNote <= 60 && r.highNote >= 60, "and that note is on screen")
         }
 
         t.test("the fitted range is remembered per device") {
@@ -317,7 +333,7 @@ func runKeyboardRangeTests(_ t: Harness) {
 
             let second = KeyboardRange(defaults: suite)
             second.use(device: "Controller A")
-            t.equal(second.lowNote, 24, "remembered next session")
+            t.equal(second.lowNote, first.lowNote, "remembered next session")
 
             second.use(device: "Controller B")
             t.equal(second.lowNote, 36, "a different device starts fresh")

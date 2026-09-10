@@ -17,7 +17,6 @@ public final class KeyboardRange {
     public static let defaultHigh = 84
 
     public private(set) var lowNote: Int
-    public private(set) var highNote: Int
     /// Which device this range was learned from.
     public private(set) var deviceKey: String?
 
@@ -26,17 +25,19 @@ public final class KeyboardRange {
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         lowNote = Self.defaultLow
-        highNote = Self.defaultHigh
     }
 
-    public var octaves: Int { max(1, (highNote - lowNote) / 12) }
+    /// How many octaves are drawn. Stable: the window slides rather than
+    /// resizing, so the keys keep their proportions.
+    public private(set) var octaves: Int = 4
 
-    /// Never draw more than this. A controller's octave buttons move the notes
-    /// it sends, so a session that wanders up and down would otherwise teach
-    /// the display a range covering everything and shrink the keys to slivers.
+    public var highNote: Int { lowNote + octaves * 12 }
+
+    /// Widest and narrowest the span may become.
     private static let maxOctaves = 6
     private static let minOctaves = 2
-    /// How long a note keeps counting towards the fitted range.
+    private static let defaultOctaves = 4
+    /// How long a note keeps counting towards the fitted window.
     private static let window: TimeInterval = 30
 
     private var recent: [(note: Int, at: Date)] = []
@@ -50,57 +51,65 @@ public final class KeyboardRange {
         guard let device, let stored = defaults.array(forKey: Self.key(for: device)) as? [Int],
               stored.count == 2 else {
             lowNote = Self.defaultLow
-            highNote = Self.defaultHigh
+            octaves = Self.defaultOctaves
             return true
         }
         lowNote = stored[0]
-        highNote = stored[1]
+        octaves = min(Self.maxOctaves, max(Self.minOctaves, stored[1]))
         return true
     }
 
-    /// Record what is being played. Returns true only when the range must widen
-    /// *now* — a note outside the current view has to become visible
-    /// immediately, whereas tightening can wait for a pause.
+    /// Record what is being played, sliding the window if a note falls outside
+    /// it. Returns true when the view changed.
+    ///
+    /// Sliding rather than growing is the whole point: pressing octave-up on a
+    /// controller should move which notes are shown, not how many. Growing the
+    /// span reshapes every key on screen for something that is not a change of
+    /// instrument.
     @discardableResult
     public func observe(_ notes: [Int], now: Date = Date()) -> Bool {
-        guard !notes.isEmpty else { return false }
+        guard let lowest = notes.min(), let highest = notes.max() else { return false }
         for note in notes { recent.append((note, now)) }
         prune(now: now)
-
-        var changed = false
-        if let lowest = notes.min(), lowest < lowNote {
-            lowNote = (lowest / 12) * 12
-            changed = true
-        }
-        if let highest = notes.max(), highest > highNote {
-            highNote = ((highest + 11) / 12) * 12
-            changed = true
-        }
-        if changed { clampAndStore() }
-        return changed
+        return frame(lowest: lowest, highest: highest)
     }
 
-    /// Re-fit to recent activity. Call only when nothing is held: resizing the
-    /// keyboard mid-chord moves every key under the player's eyes, which is
-    /// exactly the jitter that made an earlier version unusable.
+    /// Re-centre on recent playing. Call only when nothing is held: moving the
+    /// keyboard mid-chord shifts every key under the player's eyes.
     @discardableResult
     public func settle(now: Date = Date()) -> Bool {
         prune(now: now)
-        guard !recent.isEmpty else { return false }
         let notes = recent.map(\.note)
         guard let lowest = notes.min(), let highest = notes.max() else { return false }
+        // Recent playing may fit in fewer octaves than the span has grown to.
+        let needed = max(Self.defaultOctaves, spanNeeded(lowest: lowest, highest: highest))
+        var changed = false
+        if needed < octaves { octaves = needed; changed = true }
+        return frame(lowest: lowest, highest: highest) || changed
+    }
 
-        var targetLow = (lowest / 12) * 12
-        var targetHigh = ((highest + 11) / 12) * 12
-        // Pad to a usable width, centred on what is actually being played.
-        while (targetHigh - targetLow) / 12 < Self.minOctaves {
-            if targetLow > 0 { targetLow -= 12 }
-            if (targetHigh - targetLow) / 12 < Self.minOctaves { targetHigh += 12 }
+    private func spanNeeded(lowest: Int, highest: Int) -> Int {
+        let low = (lowest / 12) * 12
+        let high = ((highest + 11) / 12) * 12
+        return max(Self.minOctaves, min(Self.maxOctaves, (high - low) / 12))
+    }
+
+    /// Move, and only if truly necessary widen, so both notes are visible.
+    @discardableResult
+    private func frame(lowest: Int, highest: Int) -> Bool {
+        let previousLow = lowNote, previousOctaves = octaves
+        let needed = spanNeeded(lowest: lowest, highest: highest)
+        if needed > octaves { octaves = needed }
+
+        var low = lowNote
+        if lowest < low { low = (lowest / 12) * 12 }
+        if highest > low + octaves * 12 {
+            low = ((highest + 11) / 12) * 12 - octaves * 12
         }
-        guard targetLow != lowNote || targetHigh != highNote else { return false }
-        lowNote = targetLow
-        highNote = targetHigh
-        clampAndStore()
+        lowNote = max(0, min(low, 127 - octaves * 12))
+
+        guard lowNote != previousLow || octaves != previousOctaves else { return false }
+        store()
         return true
     }
 
@@ -109,23 +118,17 @@ public final class KeyboardRange {
         if recent.count > 512 { recent.removeFirst(recent.count - 512) }
     }
 
-    private func clampAndStore() {
-        lowNote = max(0, min(lowNote, 108))
-        highNote = min(127, max(highNote, lowNote + 12 * Self.minOctaves))
-        if (highNote - lowNote) / 12 > Self.maxOctaves {
-            highNote = lowNote + 12 * Self.maxOctaves
-        }
-        if let deviceKey {
-            defaults.set([lowNote, highNote], forKey: Self.key(for: deviceKey))
-        }
+    private func store() {
+        guard let deviceKey else { return }
+        defaults.set([lowNote, octaves], forKey: Self.key(for: deviceKey))
     }
 
     /// Forget what was learned and go back to the default 49 keys.
     public func reset() {
         recent.removeAll()
         lowNote = Self.defaultLow
-        highNote = Self.defaultHigh
-        if let deviceKey { defaults.removeObject(forKey: Self.key(for: deviceKey)) }
+        octaves = Self.defaultOctaves
+        store()
     }
 
     private static func key(for device: String) -> String {

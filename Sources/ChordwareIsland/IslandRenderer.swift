@@ -79,7 +79,7 @@ public enum IslandRenderer {
             written.append(url)
         }
         if let url = try renderCompanion(to: directory.appendingPathComponent("companion-presentation.png"),
-                                         presentation: true) {
+                                         presentation: true, size: CGSize(width: 810, height: 236)) {
             written.append(url)
         }
         for naming in [NoteNaming.fixedDo, .scaleDegrees] {
@@ -96,7 +96,8 @@ public enum IslandRenderer {
     public static func renderCompanion(to url: URL, sounding: Bool = true,
                                        notes: [Int]? = nil,
                                        presentation: Bool = false,
-                                       naming: NoteNaming = .letters) throws -> URL? {
+                                       naming: NoteNaming = .letters,
+                                       size: CGSize = CGSize(width: 900, height: 600)) throws -> URL? {
         let model = IslandPreviewData.model(state: .glance)
         model.isSounding = sounding
         model.presentationMode = presentation
@@ -105,7 +106,7 @@ public enum IslandRenderer {
         if let notes {
             model.presentNotesOnly(notes, atMs: 0)
         }
-        let view = CompanionView(model: model).frame(width: 900, height: 600)
+        let view = CompanionView(model: model).frame(width: size.width, height: size.height)
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2
         guard let image = renderer.nsImage,

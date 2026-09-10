@@ -16,6 +16,8 @@ public struct MiniPiano: View {
     public var key: Key?
     /// Colour held keys by their role rather than all alike.
     public var usesRoleColors: Bool
+    /// Widest a white key may be drawn.
+    public var maxWhiteWidth: CGFloat
     public var lowNote: Int
     public var octaves: Int
     /// Label each C, so the octave you are looking at is unambiguous.
@@ -44,11 +46,13 @@ public struct MiniPiano: View {
                 velocities: [Int: Int] = [:],
                 naming: NoteNaming = .letters,
                 key: Key? = nil,
-                usesRoleColors: Bool = true) {
+                usesRoleColors: Bool = true,
+                maxWhiteWidth: CGFloat = PianoLayout.maxWhiteWidth) {
         self.heldNotes = heldNotes
         self.naming = naming
         self.key = key
         self.usesRoleColors = usesRoleColors
+        self.maxWhiteWidth = maxWhiteWidth
         self.showsOctaveLabels = showsOctaveLabels
         self.namesHeldNotes = namesHeldNotes
         self.chord = chord
@@ -64,7 +68,8 @@ public struct MiniPiano: View {
 
     public var body: some View {
         Canvas { context, size in
-            let layout = PianoLayout(lowNote: lowNote, octaves: octaves, size: size)
+            let layout = PianoLayout(lowNote: lowNote, octaves: octaves, size: size,
+                                     maxWhiteWidth: maxWhiteWidth)
             let held = Set(heldNotes)
 
             // Keys are drawn as keys, always. Dimming the ones outside the key
