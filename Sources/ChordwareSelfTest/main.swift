@@ -2,6 +2,10 @@ import Foundation
 
 @MainActor
 func runAll() {
+    if ProcessInfo.processInfo.arguments.contains("--diagnose") {
+        dumpSignalDiagnostics()
+        exit(0)
+    }
     let t = Harness()
 
     runPitchTests(t)
@@ -9,7 +13,10 @@ func runAll() {
     runParserTests(t)
     runScaleTests(t)
     runAnalysisTests(t)
+    runPerformanceTests(t)
     runIslandTests(t)
+    runMIDITests(t)
+    runSignalTests(t)
 
     t.summarize()
 }

@@ -1,4 +1,5 @@
 import ChordwareCore
+import ChordwareEngine
 import ChordwareIsland
 import CoreGraphics
 
@@ -119,6 +120,41 @@ func runIslandTests(_ t: Harness) {
             t.check(model.romanNumeral != nil, "has a roman numeral")
             t.check(!model.progression.isEmpty, "has a progression")
             t.check(!model.scaleFits.isEmpty, "has scale suggestions")
+        }
+    }
+}
+
+func runMIDITests(_ t: Harness) {
+    t.suite("MIDI decoding") {
+        t.test("channel voice messages round-trip through UMP words") {
+            let cases: [MIDIMessage] = [
+                .noteOn(note: 60, velocity: 100, channel: 0),
+                .noteOn(note: 127, velocity: 1, channel: 15),
+                .noteOff(note: 48, channel: 3),
+                .sustain(down: true, channel: 0),
+                .sustain(down: false, channel: 9),
+                .allNotesOff(channel: 2),
+            ]
+            for message in cases {
+                t.equal(UMP.decode(word: UMP.encode(message)), message, "\(message)")
+            }
+        }
+
+        t.test("a note-on with zero velocity decodes as a note-off") {
+            // Running-status hardware sends this instead of 0x80. Decoding it
+            // as a note-on leaves the chord stuck on screen forever.
+            let word = UMP.encode(.noteOn(note: 60, velocity: 100, channel: 0)) & 0xFFFFFF00
+            t.equal(UMP.decode(word: word), .noteOff(note: 60, channel: 0), "zero velocity")
+        }
+
+        t.test("non-note traffic is ignored rather than guessed at") {
+            // Modulation wheel, and a system message.
+            let modWheel = (UInt32(0x2) << 28) | (UInt32(0xB) << 20) | (UInt32(1) << 8) | 64
+            t.check(UMP.decode(word: modWheel) == nil, "CC1 is not harmony")
+            let utility = UInt32(0x0) << 28
+            t.check(UMP.decode(word: utility) == nil, "utility messages ignored")
+            let sysex = UInt32(0x3) << 28
+            t.check(UMP.decode(word: sysex) == nil, "sysex ignored")
         }
     }
 }

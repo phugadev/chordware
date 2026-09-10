@@ -164,3 +164,59 @@ func runAnalysisTests(_ t: Harness) {
         }
     }
 }
+
+func runPerformanceTests(_ t: Harness) {
+    t.suite("Held notes and the sustain pedal") {
+        t.test("plain note on and off") {
+            var held = HeldNotes()
+            held.noteOn(60); held.noteOn(64); held.noteOn(67)
+            t.equal(held.sounding, [60, 64, 67], "a C major triad")
+            held.noteOff(64)
+            t.equal(held.sounding, [60, 67], "releasing the third")
+            held.allNotesOff()
+            t.check(held.isEmpty, "cleared")
+        }
+
+        t.test("a note-on with zero velocity is a note-off") {
+            // Hardware using running status sends this instead of 0x80, and
+            // treating it as a note-on leaves the chord stuck forever.
+            var held = HeldNotes()
+            held.noteOn(60, velocity: 90)
+            held.noteOn(60, velocity: 0)
+            t.check(held.isEmpty, "zero velocity releases the note")
+        }
+
+        t.test("the pedal holds notes after the keys come up") {
+            var held = HeldNotes()
+            held.setSustain(true)
+            held.noteOn(60); held.noteOn(64)
+            held.noteOff(60); held.noteOff(64)
+            t.equal(held.sounding, [60, 64], "still ringing with the pedal down")
+
+            held.noteOn(67)
+            t.equal(held.sounding, [60, 64, 67], "new notes add to the sustained ones")
+
+            held.setSustain(false)
+            t.equal(held.sounding, [67], "lifting the pedal drops released notes only")
+        }
+
+        t.test("retriggering a sustained note makes it live again") {
+            var held = HeldNotes()
+            held.setSustain(true)
+            held.noteOn(60)
+            held.noteOff(60)
+            held.noteOn(60)
+            held.setSustain(false)
+            t.equal(held.sounding, [60], "the key is still down, so it survives the pedal lift")
+        }
+
+        t.test("changes are reported only when the chord actually changes") {
+            var held = HeldNotes()
+            t.check(held.noteOn(60), "first press changes the chord")
+            t.check(!held.noteOn(60), "repeating the same note does not")
+            held.setSustain(true)
+            t.check(!held.noteOff(60), "releasing under the pedal does not change what sounds")
+            t.check(held.setSustain(false), "lifting the pedal does")
+        }
+    }
+}
