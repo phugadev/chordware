@@ -197,3 +197,70 @@ func runMIDIRoutingTests(_ t: Harness) {
         }
     }
 }
+
+@MainActor
+func runPianoTests(_ t: Harness) {
+    t.suite("Piano layout") {
+        // Four octaves from C2, the island's default.
+        let layout = PianoLayout(lowNote: 36, octaves: 4, size: CGSize(width: 290, height: 42))
+
+        t.test("white keys are the naturals, in order") {
+            t.equal(layout.whiteCount, 29, "four octaves plus the final C")
+            t.equal(layout.whiteKeys.count, 29, "one rect each")
+            t.equal(layout.whiteKeys.first?.note, 36, "starts on C2")
+            t.equal(layout.whiteKeys.last?.note, 84, "ends on C6")
+            // C D E F G A B, then the next C.
+            t.equal(layout.whiteKeys.prefix(8).map(\.note), [36, 38, 40, 41, 43, 45, 47, 48],
+                    "first octave of naturals")
+            // No white key may be a black note.
+            let blackPitchClasses = Set([1, 3, 6, 8, 10])
+            t.check(layout.whiteKeys.allSatisfy { !blackPitchClasses.contains(PitchClass($0.note).value) },
+                    "no accidental is drawn as a white key")
+        }
+
+        t.test("black keys are the accidentals, and there are the right number") {
+            t.equal(layout.blackKeys.count, 20, "five per octave")
+            let blackPitchClasses = Set([1, 3, 6, 8, 10])
+            t.check(layout.blackKeys.allSatisfy { blackPitchClasses.contains(PitchClass($0.note).value) },
+                    "every black key is an accidental")
+            // The E/F and B/C boundaries must stay empty.
+            t.check(!layout.blackKeys.contains { PitchClass($0.note).value == 5 }, "no black key on F")
+            t.check(!layout.blackKeys.contains { PitchClass($0.note).value == 0 }, "no black key on C")
+        }
+
+        t.test("every note maps to exactly one key") {
+            for note in layout.noteRange {
+                let matches = layout.keys.filter { $0.note == note }
+                t.equal(matches.count, 1, "note \(MIDINote.name(note)) has one key")
+            }
+        }
+
+        t.test("key positions rise with pitch") {
+            // The real bug this guards: a keyboard whose highlighting is offset
+            // from the notes played. Centres must be strictly increasing.
+            let sorted = layout.keys.sorted { $0.note < $1.note }
+            for (a, b) in zip(sorted, sorted.dropFirst()) {
+                t.check(a.rect.midX < b.rect.midX,
+                        "\(MIDINote.name(a.note)) sits left of \(MIDINote.name(b.note))")
+            }
+        }
+
+        t.test("black keys straddle the right white keys") {
+            let whites = layout.whiteKeys
+            for black in layout.blackKeys {
+                // The white key a semitone below and the one a semitone above.
+                guard let below = whites.first(where: { $0.note == black.note - 1 }),
+                      let above = whites.first(where: { $0.note == black.note + 1 }) else {
+                    t.check(false, "missing neighbours for \(MIDINote.name(black.note))")
+                    continue
+                }
+                t.check(black.rect.midX > below.rect.minX && black.rect.midX < above.rect.maxX,
+                        "\(MIDINote.name(black.note)) sits between its neighbours")
+                // And is centred on the seam between them.
+                let seam = below.rect.maxX
+                t.check(abs(black.rect.midX - seam) < 0.01,
+                        "\(MIDINote.name(black.note)) is centred on the seam")
+            }
+        }
+    }
+}

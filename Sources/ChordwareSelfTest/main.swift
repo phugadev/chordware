@@ -17,6 +17,7 @@ func runAll() {
     runIslandTests(t)
     runMIDITests(t)
     runMIDIRoutingTests(t)
+    runPianoTests(t)
     runSignalTests(t)
 
     t.summarize()

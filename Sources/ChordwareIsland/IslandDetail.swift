@@ -16,8 +16,8 @@ struct ExpandedDetail: View {
                 ConfidenceBar(value: model.confidence)
             }
 
-            MiniPiano(heldNotes: model.heldNotes, scaleNotes: scaleNotes)
-                .frame(height: 42)
+            MiniPiano(heldNotes: model.heldNotes, scaleNotes: scaleNotes, showsOctaveLabels: true)
+                .frame(height: 46)
 
             if !model.alternatives.isEmpty {
                 HStack(spacing: 5) {
