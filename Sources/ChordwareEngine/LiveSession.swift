@@ -20,6 +20,8 @@ public final class LiveSession {
         public let key: Key?
         public let keyConfidence: Double
         public let chroma: [Double]?
+        /// How hard each held key was struck, for showing dynamics.
+        public let velocities: [Int: Int]
         public let sustainDown: Bool
         public let timeMs: Int
     }
@@ -198,6 +200,7 @@ public final class LiveSession {
             key: effectiveKey,
             keyConfidence: lockedKey != nil ? 1 : keyConfidence,
             chroma: source == .audio ? lastChroma : nil,
+            velocities: held.velocities,
             sustainDown: held.sustainDown,
             timeMs: nowMs
         ))

@@ -91,6 +91,11 @@ public final class IslandModel {
     /// Pedal state. Shown because a stuck pedal is otherwise invisible and
     /// looks exactly like the display refusing to let go of a chord.
     public var sustainDown = false
+    /// Velocity per held note, used to shade how hard each key was struck.
+    public var velocities: [Int: Int] = [:]
+    /// Strips the window back to the keyboard and the chord name, for
+    /// recording and for playing to a room.
+    public var presentationMode = false
 
     /// Filled by the generation engine; empty until then.
     public var suggestions: [ChordSuggestion] = []

@@ -9,6 +9,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public struct Actions {
         public var openCompanion: () -> Void
         public var toggleAlwaysOnTop: () -> Void
+        public var togglePresentation: () -> Void
         public var chooseMIDI: () -> Void
         public var chooseAudio: () -> Void
         public var togglePassthrough: () -> Void
@@ -18,6 +19,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
 
         public init(openCompanion: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
+                    togglePresentation: @escaping () -> Void,
                     chooseMIDI: @escaping () -> Void,
                     chooseAudio: @escaping () -> Void,
                     togglePassthrough: @escaping () -> Void,
@@ -26,6 +28,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
                     resetKeyboardRange: @escaping () -> Void) {
             self.openCompanion = openCompanion
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
+            self.togglePresentation = togglePresentation
             self.chooseMIDI = chooseMIDI
             self.chooseAudio = chooseAudio
             self.togglePassthrough = togglePassthrough
@@ -40,6 +43,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentAlwaysOnTop: () -> Bool = { false }
     public var currentChordSummary: () -> String? = { nil }
     public var currentPassthrough: () -> Bool = { false }
+    public var currentPresentation: () -> Bool = { false }
 
     private var statusItem: NSStatusItem?
     private let actions: Actions
@@ -82,6 +86,14 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         add(menu, "Keep Window on Top", key: "t", checked: currentAlwaysOnTop()) { [weak self] in
             self?.actions.toggleAlwaysOnTop()
         }
+        let presentation = NSMenuItem(title: "Presentation Mode", action: #selector(fire(_:)),
+                                      keyEquivalent: "p")
+        presentation.keyEquivalentModifierMask = [.command, .option, .control]
+        presentation.target = self
+        presentation.state = currentPresentation() ? .on : .off
+        presentation.representedObject = Box { [weak self] in self?.actions.togglePresentation() }
+        presentation.toolTip = "Just the chord and the keyboard, for recording or performing."
+        menu.addItem(presentation)
         menu.addItem(.separator())
 
         let audio = currentSourceIsAudio()

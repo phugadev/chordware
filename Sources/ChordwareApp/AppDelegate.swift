@@ -26,6 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var companion: CompanionWindowController?
     private var menuBar: MenuBarController?
     private var companionHotKey: GlobalHotKey?
+    private var presentationHotKeyRef: GlobalHotKey?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let arguments = CommandLine.arguments
@@ -87,6 +88,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menuBar = MenuBarController(actions: .init(
             openCompanion: { companion.toggle() },
             toggleAlwaysOnTop: { companion.setAlwaysOnTop(!companion.isAlwaysOnTop) },
+            togglePresentation: { [weak self] in
+                guard let self else { return }
+                self.model.presentationMode.toggle()
+                if self.model.presentationMode { companion.show() }
+            },
             chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
             chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
             togglePassthrough: { [weak self] in
@@ -107,6 +113,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.currentSourceIsAudio = { [weak self] in self?.bridge?.session.source == .audio }
         menuBar.currentAlwaysOnTop = { companion.isAlwaysOnTop }
         menuBar.currentPassthrough = { [weak self] in self?.bridge?.session.midiOut.passthrough ?? false }
+        menuBar.currentPresentation = { [weak self] in self?.model.presentationMode ?? false }
         menuBar.currentChordSummary = { [weak self] in
             guard let chord = self?.model.chord else { return nil }
             guard let key = self?.model.key else { return chord.symbol() }
@@ -122,6 +129,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey.register(keyCode: UInt32(kVK_ANSI_C),
                         modifiers: UInt32(cmdKey | optionKey | controlKey))
         companionHotKey = hotKey
+
+        let presentationHotKey = GlobalHotKey { [weak self] in
+            guard let self else { return }
+            self.model.presentationMode.toggle()
+            if self.model.presentationMode { companion.show() }
+        }
+        presentationHotKey.register(keyCode: UInt32(kVK_ANSI_P),
+                                    modifiers: UInt32(cmdKey | optionKey | controlKey))
+        presentationHotKeyRef = presentationHotKey
 
         if arguments.contains("--window") { companion.show() }
 

@@ -20,6 +20,8 @@ public struct MiniPiano: View {
     public var namesHeldNotes: Bool
     /// Colours held keys by their role in this chord, when there is one.
     public var chord: Chord?
+    /// Velocity per note. A harder strike shows as a more saturated key.
+    public var velocities: [Int: Int]
 
     /// C2 to C6, which covers where chords are actually voiced.
     private static let defaultLow = 36
@@ -34,12 +36,14 @@ public struct MiniPiano: View {
                 lowNote: Int? = nil, octaves: Int? = nil,
                 showsOctaveLabels: Bool = false,
                 namesHeldNotes: Bool = false,
-                chord: Chord? = nil) {
+                chord: Chord? = nil,
+                velocities: [Int: Int] = [:]) {
         self.heldNotes = heldNotes
         self.scaleNotes = scaleNotes
         self.showsOctaveLabels = showsOctaveLabels
         self.namesHeldNotes = namesHeldNotes
         self.chord = chord
+        self.velocities = velocities
 
         let lowest = min(heldNotes.min() ?? Self.defaultLow, Self.defaultLow)
         let highest = max(heldNotes.max() ?? Self.defaultHigh, Self.defaultHigh)
@@ -60,22 +64,29 @@ public struct MiniPiano: View {
             // exactly like a rendering fault sitting next to every C. Scale
             // membership is a dot instead, which is clearly deliberate.
             func heldColor(_ note: Int) -> Color {
-                IslandTheme.roleColor(chord?.role(of: PitchClass(note)))
+                let base = IslandTheme.roleColor(chord?.role(of: PitchClass(note)))
+                guard let velocity = velocities[note] else { return base }
+                // Never below half: a softly played note must still read as
+                // clearly pressed, not as a key that failed to draw.
+                let strength = 0.55 + 0.45 * (Double(velocity) / 127.0)
+                return base.opacity(min(1, strength))
             }
 
             for key in layout.whiteKeys {
                 let rect = key.rect.insetBy(dx: 0.5, dy: 0)
                 let path = Path(roundedRect: rect, cornerRadius: 2)
-                context.fill(path, with: .color(held.contains(key.note)
-                                                ? heldColor(key.note)
-                                                : Color.white.opacity(0.82)))
+                context.fill(path, with: .color(Color.white.opacity(0.82)))
+                if held.contains(key.note) {
+                    context.fill(path, with: .color(heldColor(key.note)))
+                }
             }
 
             for key in layout.blackKeys {
                 let path = Path(roundedRect: key.rect, cornerRadius: 2)
-                context.fill(path, with: .color(held.contains(key.note)
-                                                ? heldColor(key.note)
-                                                : Color(white: 0.13)))
+                context.fill(path, with: .color(Color(white: 0.13)))
+                if held.contains(key.note) {
+                    context.fill(path, with: .color(heldColor(key.note)))
+                }
                 context.stroke(path, with: .color(.black), lineWidth: 1)
             }
 

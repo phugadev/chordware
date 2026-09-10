@@ -24,6 +24,9 @@ public struct HeldNotes: Sendable, Equatable {
     /// Velocity of a sounding key, for weighting the detector later.
     public func velocity(of note: Int) -> Int? { keysDown[note] }
 
+    /// Velocity of every key currently down.
+    public var velocities: [Int: Int] { keysDown }
+
     public var averageVelocity: Int {
         guard !keysDown.isEmpty else { return 0 }
         return keysDown.values.reduce(0, +) / keysDown.count

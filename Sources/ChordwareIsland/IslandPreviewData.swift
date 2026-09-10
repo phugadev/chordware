@@ -26,6 +26,11 @@ public enum IslandPreviewData {
 
         let notes = MIDINote.parseList("C3 E4 G4 Bb4 D5 A5") ?? []
         model.heldNotes = notes
+        // A spread of velocities, so the dynamics shading is visible.
+        let spread = [118, 74, 96, 52, 105, 66]
+        model.velocities = Dictionary(uniqueKeysWithValues: notes.enumerated().map {
+            ($0.element, spread[$0.offset % spread.count])
+        })
         model.candidates = ChordDetector.detect(
             midiNotes: notes,
             options: ChordDetector.Options(key: key, maxCandidates: 5)

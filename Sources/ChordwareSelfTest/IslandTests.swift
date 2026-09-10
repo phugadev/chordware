@@ -1,4 +1,5 @@
 import ChordwareCore
+import Foundation
 import ChordwareEngine
 import ChordwareIsland
 import CoreGraphics
@@ -261,6 +262,65 @@ func runPianoTests(_ t: Harness) {
                 t.check(abs(black.rect.midX - seam) < 0.01,
                         "\(MIDINote.name(black.note)) is centred on the seam")
             }
+        }
+    }
+}
+
+@MainActor
+func runKeyboardRangeTests(_ t: Harness) {
+    t.suite("Keyboard range") {
+        func range() -> KeyboardRange {
+            let suite = UserDefaults(suiteName: "ChordwareTests-\(UUID().uuidString)")!
+            let r = KeyboardRange(defaults: suite)
+            r.use(device: "Test Controller")
+            return r
+        }
+
+        t.test("widens immediately for a note outside the view") {
+            let r = range()
+            t.equal(r.lowNote, 36, "starts at C2")
+            t.check(r.observe([24]), "a low C1 widens the range")
+            t.equal(r.lowNote, 24, "now starts at C1")
+        }
+
+        t.test("octave shifts do not accumulate into a huge keyboard") {
+            // The reported bug: using the controller's octave buttons taught
+            // the display a span covering everything, shrinking the keys.
+            let r = range()
+            let now = Date()
+            r.observe([36, 40, 43], now: now)
+            r.observe([84, 88, 91], now: now)
+            t.check(r.octaves <= 6, "capped while wandering, got \(r.octaves)")
+
+            // Settle after the early material has aged out of the window.
+            let later = now.addingTimeInterval(60)
+            r.observe([60, 64, 67], now: later)
+            t.check(r.settle(now: later), "re-fits once things are quiet")
+            t.check(r.octaves <= 3, "tightened around recent playing, got \(r.octaves)")
+            t.check(r.lowNote <= 60 && r.highNote >= 67, "still covers what is played")
+        }
+
+        t.test("never narrower than two octaves") {
+            let r = range()
+            let now = Date()
+            r.observe([60], now: now)
+            r.settle(now: now)
+            t.check(r.octaves >= 2, "a single note still gives a usable keyboard")
+        }
+
+        t.test("the fitted range is remembered per device") {
+            let suite = UserDefaults(suiteName: "ChordwareTests-\(UUID().uuidString)")!
+            let first = KeyboardRange(defaults: suite)
+            first.use(device: "Controller A")
+            first.observe([24])
+            t.equal(first.lowNote, 24, "learned")
+
+            let second = KeyboardRange(defaults: suite)
+            second.use(device: "Controller A")
+            t.equal(second.lowNote, 24, "remembered next session")
+
+            second.use(device: "Controller B")
+            t.equal(second.lowNote, 36, "a different device starts fresh")
         }
     }
 }

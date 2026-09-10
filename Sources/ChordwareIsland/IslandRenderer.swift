@@ -77,14 +77,20 @@ public enum IslandRenderer {
                                          notes: [60, 67]) {
             written.append(url)
         }
+        if let url = try renderCompanion(to: directory.appendingPathComponent("companion-presentation.png"),
+                                         presentation: true) {
+            written.append(url)
+        }
         return written
     }
 
     /// Render the companion window's contents at its default size.
     public static func renderCompanion(to url: URL, sounding: Bool = true,
-                                       notes: [Int]? = nil) throws -> URL? {
+                                       notes: [Int]? = nil,
+                                       presentation: Bool = false) throws -> URL? {
         let model = IslandPreviewData.model(state: .glance)
         model.isSounding = sounding
+        model.presentationMode = presentation
         if !sounding { model.heldNotes = [] }
         if let notes {
             model.presentNotesOnly(notes, atMs: 0)

@@ -17,6 +17,15 @@ public struct CompanionView: View {
     }
 
     public var body: some View {
+        Group {
+            if model.presentationMode { presentation } else { full }
+        }
+        .background(IslandTheme.background)
+        .preferredColorScheme(.dark)
+        .animation(.easeInOut(duration: 0.22), value: model.presentationMode)
+    }
+
+    private var full: some View {
         VStack(spacing: 0) {
             header
             Divider().overlay(IslandTheme.hairline)
@@ -27,8 +36,50 @@ public struct CompanionView: View {
             Spacer(minLength: 0)
             footer
         }
-        .background(IslandTheme.background)
-        .preferredColorScheme(.dark)
+    }
+
+    /// Everything stripped back to what a viewer needs: the chord, and the
+    /// hands. Meant for screen recording and for playing to a room, where the
+    /// analysis columns are noise competing with the person talking.
+    private var presentation: some View {
+        VStack(spacing: 0) {
+            HStack(alignment: .firstTextBaseline, spacing: 20) {
+                Text(model.displaySymbol)
+                    .font(.system(size: 96, weight: .semibold, design: .rounded))
+                    .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.35)
+                    .contentTransition(.numericText())
+                Spacer(minLength: 8)
+                if let numeral = model.romanNumeral {
+                    Text(numeral.symbol)
+                        .font(.system(size: 52, weight: .semibold, design: .rounded))
+                        .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
+                        .lineLimit(1)
+                }
+                if let key = model.key {
+                    Text(key.shortName)
+                        .font(.system(size: 22, weight: .medium, design: .rounded))
+                        .foregroundStyle(IslandTheme.tertiary)
+                }
+            }
+            .padding(.horizontal, 36)
+            .padding(.top, 28)
+            .padding(.bottom, 10)
+
+            MiniPiano(heldNotes: model.heldNotes,
+                      lowNote: model.keyboardLowNote,
+                      octaves: model.keyboardOctaves,
+                      showsOctaveLabels: true,
+                      namesHeldNotes: true,
+                      chord: model.chord,
+                      velocities: model.velocities)
+                .frame(maxHeight: .infinity)
+                .padding(.horizontal, 28)
+                .padding(.bottom, 28)
+                .opacity(model.isSounding ? 1 : 0.55)
+                .animation(.easeOut(duration: 0.35), value: model.isSounding)
+        }
     }
 
     // MARK: - Header
@@ -80,7 +131,8 @@ public struct CompanionView: View {
                   octaves: model.keyboardOctaves,
                   showsOctaveLabels: true,
                   namesHeldNotes: true,
-                  chord: model.chord)
+                  chord: model.chord,
+                  velocities: model.velocities)
             .frame(height: 132)
             .padding(.horizontal, 20)
             .padding(.vertical, 18)

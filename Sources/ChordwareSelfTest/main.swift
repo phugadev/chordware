@@ -18,6 +18,7 @@ func runAll() {
     runMIDITests(t)
     runMIDIRoutingTests(t)
     runPianoTests(t)
+    runKeyboardRangeTests(t)
     runSignalTests(t)
 
     t.summarize()
