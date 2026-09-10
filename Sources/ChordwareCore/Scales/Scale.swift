@@ -115,8 +115,15 @@ public struct Scale: Hashable, Sendable, Identifiable {
     }
 
     /// The scale's notes written in a naming system.
+    ///
+    /// Degrees are read against the scale's own root, not the current key: a
+    /// scale is a shape, and "1 2 3 4 5 6 b7" describes Mixolydian wherever it
+    /// starts.
     public func spelled(root: SpelledNote, naming: NoteNaming, key: Key? = nil) -> [String] {
-        spelled(root: root).map { naming.name($0, in: key) }
+        let reference = naming.isNumeric
+            ? Key(tonic: root, mode: intervals.contains(3) ? .minor : .major)
+            : key
+        return spelled(root: root).map { naming.name($0, in: reference) }
     }
 
     /// How well this scale covers a chord.

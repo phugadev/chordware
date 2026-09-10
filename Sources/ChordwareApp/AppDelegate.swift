@@ -88,12 +88,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menuBar = MenuBarController(actions: .init(
             openCompanion: { companion.toggle() },
             toggleAlwaysOnTop: { companion.setAlwaysOnTop(!companion.isAlwaysOnTop) },
-            togglePresentation: { [weak self] in
+            setDisplayMode: { [weak self] mode in
                 guard let self else { return }
-                self.model.presentationMode.toggle()
-                if self.model.presentationMode { companion.show() }
-                companion.setCompact(self.model.presentationMode)
+                self.model.displayMode = mode
+                companion.show()
+                companion.apply(mode: mode)
             },
+            toggleClickThrough: { companion.setClickThrough(!companion.isClickThrough) },
             chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
             chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
             togglePassthrough: { [weak self] in
@@ -116,7 +117,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.currentSourceIsAudio = { [weak self] in self?.bridge?.session.source == .audio }
         menuBar.currentAlwaysOnTop = { companion.isAlwaysOnTop }
         menuBar.currentPassthrough = { [weak self] in self?.bridge?.session.midiOut.passthrough ?? false }
-        menuBar.currentPresentation = { [weak self] in self?.model.presentationMode ?? false }
+        menuBar.currentDisplayMode = { [weak self] in self?.model.displayMode ?? .companion }
+        menuBar.currentClickThrough = { companion.isClickThrough }
         menuBar.currentNaming = { [weak self] in self?.model.naming ?? .letters }
         menuBar.currentRoleColors = { [weak self] in self?.model.roleColors ?? true }
         menuBar.currentChordSummary = { [weak self] in
@@ -135,15 +137,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         modifiers: UInt32(cmdKey | optionKey | controlKey))
         companionHotKey = hotKey
 
-        let presentationHotKey = GlobalHotKey { [weak self] in
+        // Cycles companion -> compact -> overlay -> companion, so all three are
+        // reachable without the menu bar, which can be unreachable behind the
+        // notch on a busy menu bar.
+        let modeHotKey = GlobalHotKey { [weak self] in
             guard let self else { return }
-            self.model.presentationMode.toggle()
-            if self.model.presentationMode { companion.show() }
-            companion.setCompact(self.model.presentationMode)
+            let order = DisplayMode.allCases
+            let next = order[(order.firstIndex(of: self.model.displayMode).map { $0 + 1 } ?? 0) % order.count]
+            self.model.displayMode = next
+            companion.show()
+            companion.apply(mode: next)
         }
-        presentationHotKey.register(keyCode: UInt32(kVK_ANSI_P),
-                                    modifiers: UInt32(cmdKey | optionKey | controlKey))
-        presentationHotKeyRef = presentationHotKey
+        modeHotKey.register(keyCode: UInt32(kVK_ANSI_P),
+                            modifiers: UInt32(cmdKey | optionKey | controlKey))
+        presentationHotKeyRef = modeHotKey
 
         if arguments.contains("--window") { companion.show() }
 

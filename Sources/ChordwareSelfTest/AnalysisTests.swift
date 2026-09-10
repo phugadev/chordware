@@ -250,6 +250,29 @@ func runNamingTests(_ t: Harness) {
             t.equal(NoteNaming.scaleDegrees.name(SpelledNote("F#")!, in: c), "#4", "F# is a sharp 4")
         }
 
+        t.test("a numeric root never runs into a numeric figure") {
+            // C13 in C rendered as "113" and Bb7 as "b77" before the figure was
+            // raised: the root's digits ran straight into the quality's, which
+            // is why Nashville charts write the figure small and high.
+            let c13 = ChordParser.parse("C13")!
+            t.equal(c13.symbol(naming: .scaleDegrees, in: c), "1\u{00B9}\u{00B3}", "C13 is 1 with a raised 13")
+            let bflat7 = ChordParser.parse("Bb7")!
+            t.equal(bflat7.symbol(naming: .scaleDegrees, in: c), "b7\u{2077}", "Bb7 is b7 with a raised 7")
+            let a7 = ChordParser.parse("A7")!
+            t.equal(a7.symbol(naming: .scaleDegrees, in: c), "6\u{2077}", "A7 is 6 with a raised 7")
+
+            // Every other system is untouched.
+            t.equal(c13.symbol(naming: .letters), "C13", "letters unaffected")
+            t.equal(c13.symbol(naming: .fixedDo), "Do13", "fixed do unaffected")
+        }
+
+        t.test("prose keeps note names even when the symbol is a number") {
+            let chord = ChordParser.parse("C13")!
+            t.equal(chord.spokenName(naming: .scaleDegrees, in: c), "C dominant thirteenth",
+                    "nobody says 'one dominant thirteenth'")
+            t.equal(chord.spokenName(naming: .fixedDo), "Do dominant thirteenth", "fixed do does speak")
+        }
+
         t.test("a relative system falls back when there is no key") {
             t.equal(NoteNaming.scaleDegrees.name(SpelledNote("Eb")!, in: nil), "Eb",
                     "letters until a key is known")
@@ -261,7 +284,8 @@ func runNamingTests(_ t: Harness) {
             let chord = ChordParser.parse("Bbmaj7")!
             t.equal(chord.symbol(naming: .letters), "Bbmaj7", "letters")
             t.equal(chord.symbol(naming: .fixedDo), "Sibmaj7", "fixed do keeps the quality suffix")
-            t.equal(chord.symbol(naming: .scaleDegrees, in: f), "4maj7", "Bb is the 4 of F")
+            t.equal(chord.symbol(naming: .scaleDegrees, in: f), "4maj\u{2077}",
+                    "Bb is the 4 of F, with the figure raised")
 
             let slash = ChordParser.parse("C/G")!
             t.equal(slash.symbol(naming: .fixedDo), "Do/Sol", "the bass is named too")
@@ -272,7 +296,8 @@ func runNamingTests(_ t: Harness) {
                 [ChordParser.parse("Cmaj7")!, ChordParser.parse("Dm7")!,
                  ChordParser.parse("G7")!, ChordParser.parse("Ab")!], in: c)
             t.equal(numerals.map { $0.symbol(naming: .scaleDegrees) },
-                    ["1maj7", "2m7", "57", "b6"], "numbers carry quality as an m")
+                    ["1maj\u{2077}", "2m\u{2077}", "5\u{2077}", "b6"],
+                    "numbers carry quality as an m, with raised figures")
             t.equal(numerals.map { $0.symbol(naming: .letters) },
                     ["Imaj7", "ii7", "V7", "bVI"], "Roman numerals unchanged")
         }

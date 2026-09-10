@@ -78,9 +78,13 @@ public enum IslandRenderer {
                                          notes: [60, 67]) {
             written.append(url)
         }
-        if let url = try renderCompanion(to: directory.appendingPathComponent("companion-presentation.png"),
-                                         presentation: true, size: CGSize(width: 810, height: 236)) {
-            written.append(url)
+        for mode in [DisplayMode.compact, .overlay] {
+            let name = "companion-\(mode.rawValue).png"
+            if let url = try renderCompanion(to: directory.appendingPathComponent(name),
+                                             mode: mode,
+                                             size: CGSize(width: 810, height: 236)) {
+                written.append(url)
+            }
         }
         for naming in [NoteNaming.fixedDo, .scaleDegrees] {
             let name = "companion-\(naming.rawValue).png"
@@ -95,12 +99,12 @@ public enum IslandRenderer {
     /// Render the companion window's contents at its default size.
     public static func renderCompanion(to url: URL, sounding: Bool = true,
                                        notes: [Int]? = nil,
-                                       presentation: Bool = false,
+                                       mode: DisplayMode = .companion,
                                        naming: NoteNaming = .letters,
                                        size: CGSize = CGSize(width: 900, height: 600)) throws -> URL? {
         let model = IslandPreviewData.model(state: .glance)
         model.isSounding = sounding
-        model.presentationMode = presentation
+        model.displayMode = mode
         model.naming = naming
         if !sounding { model.heldNotes = [] }
         if let notes {

@@ -110,7 +110,7 @@ struct ScalesTab: View {
             } else {
                 ForEach(Array(fits.prefix(5).enumerated()), id: \.offset) { _, fit in
                     HStack(spacing: 8) {
-                        Text("\(model.naming.name(fit.root, in: model.key)) \(fit.scale.name)")
+                        Text("\(fit.root.name()) \(fit.scale.name)")
                             .font(IslandTheme.labelFont(11))
                             .foregroundStyle(IslandTheme.primary)
                             .frame(width: 148, alignment: .leading)

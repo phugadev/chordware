@@ -10,7 +10,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public struct Actions {
         public var openCompanion: () -> Void
         public var toggleAlwaysOnTop: () -> Void
-        public var togglePresentation: () -> Void
+        public var setDisplayMode: (DisplayMode) -> Void
+        public var toggleClickThrough: () -> Void
         public var chooseMIDI: () -> Void
         public var chooseAudio: () -> Void
         public var togglePassthrough: () -> Void
@@ -22,7 +23,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
 
         public init(openCompanion: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
-                    togglePresentation: @escaping () -> Void,
+                    setDisplayMode: @escaping (DisplayMode) -> Void,
+                    toggleClickThrough: @escaping () -> Void,
                     chooseMIDI: @escaping () -> Void,
                     chooseAudio: @escaping () -> Void,
                     togglePassthrough: @escaping () -> Void,
@@ -33,7 +35,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
                     toggleRoleColors: @escaping () -> Void) {
             self.openCompanion = openCompanion
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
-            self.togglePresentation = togglePresentation
+            self.setDisplayMode = setDisplayMode
+            self.toggleClickThrough = toggleClickThrough
             self.chooseMIDI = chooseMIDI
             self.chooseAudio = chooseAudio
             self.togglePassthrough = togglePassthrough
@@ -50,7 +53,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentAlwaysOnTop: () -> Bool = { false }
     public var currentChordSummary: () -> String? = { nil }
     public var currentPassthrough: () -> Bool = { false }
-    public var currentPresentation: () -> Bool = { false }
+    public var currentDisplayMode: () -> DisplayMode = { .companion }
+    public var currentClickThrough: () -> Bool = { false }
     public var currentNaming: () -> NoteNaming = { .letters }
     public var currentRoleColors: () -> Bool = { true }
 
@@ -95,14 +99,26 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         add(menu, "Keep Window on Top", key: "t", checked: currentAlwaysOnTop()) { [weak self] in
             self?.actions.toggleAlwaysOnTop()
         }
-        let presentation = NSMenuItem(title: "Presentation Mode", action: #selector(fire(_:)),
-                                      keyEquivalent: "p")
-        presentation.keyEquivalentModifierMask = [.command, .option, .control]
-        presentation.target = self
-        presentation.state = currentPresentation() ? .on : .off
-        presentation.representedObject = Box { [weak self] in self?.actions.togglePresentation() }
-        presentation.toolTip = "Just the chord and the keyboard, for recording or performing."
-        menu.addItem(presentation)
+        let mode = currentDisplayMode()
+        for option in DisplayMode.allCases {
+            let item = NSMenuItem(title: option.displayName, action: #selector(fire(_:)),
+                                  keyEquivalent: option == .compact ? "p" : "")
+            if option == .compact { item.keyEquivalentModifierMask = [.command, .option, .control] }
+            item.target = self
+            item.state = option == mode ? .on : .off
+            item.representedObject = Box { [weak self] in self?.actions.setDisplayMode(option) }
+            switch option {
+            case .companion: item.toolTip = "Everything: notes, alternatives, scales, progression."
+            case .compact: item.toolTip = "Just the chord and the keyboard, in a window that fits it."
+            case .overlay: item.toolTip = "Compact, translucent and floating over your DAW."
+            }
+            menu.addItem(item)
+        }
+        if mode == .overlay {
+            add(menu, "Click Through Overlay", key: "", checked: currentClickThrough()) { [weak self] in
+                self?.actions.toggleClickThrough()
+            }
+        }
         add(menu, "Colour Keys by Role", key: "", checked: currentRoleColors()) { [weak self] in
             self?.actions.toggleRoleColors()
         }

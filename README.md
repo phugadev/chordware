@@ -38,6 +38,8 @@ So Chordware does audio as well as MIDI, and treats naming a chord as the
 - **Cadence detection** as it happens.
 - **Progression capture** with a running timeline.
 - **92 scales and modes**, with the ones that fit the current chord ranked.
+- **Three note-naming systems** — letters, fixed do (Do Re Mi, Do always C), and
+  Nashville numbers relative to the key — applied consistently everywhere.
 - **MIDI passthrough** through a virtual port named `Chordware`, off by
   default — see below.
 - **A CLI** over the same engine, so all of it is scriptable.
@@ -90,6 +92,31 @@ well on dense, distorted or heavily percussive material, where the harmony is
 genuinely ambiguous in the spectrum. It is a musical assistant, not a
 transcription oracle. MIDI input has no such limits — it is exact.
 
+## Three ways to show it
+
+| Mode | What it is |
+|---|---|
+| **Companion** | Everything: keyboard, notes and intervals, alternative readings, fitting scales, the progression so far. |
+| **Compact** | The keyboard and one line of text, in a window shrunk to fit. For recording, or playing to a room. |
+| **Overlay** | Compact, translucent and floating above your DAW, with an optional click-through so it never intercepts a mouse. |
+
+All three draw the same keyboard at the same key size. The modes differ in what
+surrounds it and how the window behaves, never in how the instrument is drawn.
+
+`Control-Option-Command-P` cycles them.
+
+## The keyboard
+
+The keyboard is an instrument and the window is a view onto it. Keys have fixed
+proportions and never stretch to fill a window; instead the visible range slides
+to follow what you play. Pressing octave-up on a controller changes *which*
+notes are shown, not how many.
+
+The range is learned per device and remembered. It widens only for a reach that
+genuinely does not fit, and re-centres when you pause — never mid-chord, because
+moving the keys while you are looking at them is worse than showing the wrong
+range.
+
 ## Getting to it
 
 Chordware has no Dock icon. The menu bar item is the usual way in, but on a
@@ -98,7 +125,8 @@ notch where it cannot be clicked, so there is a global shortcut too:
 
 | | |
 |---|---|
-| `Control-Option-Command-C` | show or hide the companion window |
+| `Control-Option-Command-C` | show or hide the window |
+| `Control-Option-Command-P` | cycle companion → compact → overlay |
 | menu bar > Quit | or `Command-Q` from the menu |
 
 ## Passthrough, and why it is off

@@ -93,9 +93,10 @@ public final class IslandModel {
     public var sustainDown = false
     /// Velocity per held note, used to shade how hard each key was struck.
     public var velocities: [Int: Int] = [:]
-    /// Strips the window back to the keyboard and the chord name, for
-    /// recording and for playing to a room.
-    public var presentationMode = false
+    /// Which of the three displays is showing.
+    public var displayMode: DisplayMode = .companion
+
+    public var isCompactLayout: Bool { displayMode != .companion }
     /// How note and chord names are written.
     public var naming: NoteNaming = IslandModel.loadNaming() { didSet { IslandModel.store(naming) } }
     /// Colour held keys by their role in the chord, rather than all alike.
@@ -147,7 +148,7 @@ public final class IslandModel {
     }
 
     public var displayDetail: String {
-        if let chord { return chord.fullName(naming: naming, in: key) }
+        if let chord { return chord.spokenName(naming: naming, in: key) }
         switch heldNotes.count {
         case 0: return "play something"
         case 1: return "single note \u{00B7} \(MIDINote.name(heldNotes[0]))"

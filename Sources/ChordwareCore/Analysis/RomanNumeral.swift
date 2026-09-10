@@ -45,10 +45,11 @@ public struct RomanNumeral: Sendable, Hashable, CustomStringConvertible {
             : String(repeating: accidental < 0 ? "b" : "#", count: abs(accidental))
         // Diminished and half-diminished already say so in the figure.
         let needsM = isMinorQuality && !figure.contains("\u{00B0}") && !figure.contains("\u{00F8}")
-        var text = mark + "\(degree)" + (needsM ? "m" : "") + figure
+        let raised = NoteNaming.scaleDegrees.figure(figure)
+        var text = mark + "\(degree)" + (needsM ? "m" : "") + raised
         // Secondary function keeps its slash, with the target in numbers too.
         if let target, symbol.contains("/") {
-            text = (symbol.hasPrefix("subV") ? "sub5" : "5") + figure + "/" + Self.numeral(target)
+            text = (symbol.hasPrefix("subV") ? "sub5" : "5") + raised + "/" + Self.numeral(target)
         }
         return text
     }

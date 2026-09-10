@@ -25,6 +25,26 @@ public enum NoteNaming: String, Sendable, Hashable, CaseIterable, Codable {
     /// Needs a key to mean anything.
     public var requiresKey: Bool { self == .scaleDegrees }
 
+    /// True when roots are written as numbers, which collide with the numbers
+    /// in chord figures unless the figure is raised.
+    public var isNumeric: Bool { self == .scaleDegrees }
+
+    /// Raise a chord figure so a numeric root stays readable.
+    ///
+    /// Without this, C13 in the key of C renders as "113" and B♭7 as "b77" --
+    /// the root's digits running straight into the quality's. Nashville charts
+    /// have always written the figure small and raised for exactly this
+    /// reason.
+    public func figure(_ text: String) -> String {
+        guard isNumeric else { return text }
+        let superscripts: [Character: Character] = [
+            "0": "\u{2070}", "1": "\u{00B9}", "2": "\u{00B2}", "3": "\u{00B3}",
+            "4": "\u{2074}", "5": "\u{2075}", "6": "\u{2076}", "7": "\u{2077}",
+            "8": "\u{2078}", "9": "\u{2079}",
+        ]
+        return String(text.map { superscripts[$0] ?? $0 })
+    }
+
     private static let syllables = ["Do", "Re", "Mi", "Fa", "Sol", "La", "Si"]
 
     /// Render a note. Falls back to letters when a key is needed and absent.

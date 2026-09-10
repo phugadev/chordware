@@ -61,9 +61,18 @@ public struct Chord: Hashable, Sendable, CustomStringConvertible {
     /// bass change; the quality suffix is the same in every system.
     public func symbol(naming: NoteNaming, in key: Key? = nil, unicode: Bool = false) -> String {
         let rootText = naming.name(root, in: key, unicode: unicode)
-        guard let bass else { return rootText + quality.symbol }
-        let suffix = quality.symbol.contains("/") ? "(\(quality.symbol))" : quality.symbol
+        let figure = naming.figure(quality.symbol)
+        guard let bass else { return rootText + figure }
+        let suffix = quality.symbol.contains("/") ? "(\(figure))" : figure
         return rootText + suffix + "/" + naming.name(bass, in: key, unicode: unicode)
+    }
+
+    /// Spoken description stays in letters whatever the notation.
+    ///
+    /// "1 dominant thirteenth" is not something anybody says; prose wants a
+    /// note name even when the symbol above it is a number.
+    public func spokenName(naming: NoteNaming, in key: Key? = nil) -> String {
+        fullName(naming: naming.isNumeric ? .letters : naming, in: key)
     }
 
     /// Correct spelling for each pitch class in this chord, so a keyboard can
