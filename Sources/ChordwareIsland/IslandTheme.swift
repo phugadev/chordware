@@ -12,6 +12,10 @@ public enum IslandTheme {
     public static let hairline = Color.white.opacity(0.12)
 
     public static let accent = Color(red: 0.42, green: 0.78, blue: 1.0)
+    /// Belongs to the key.
+    public static let diatonic = Color(red: 0.55, green: 0.85, blue: 0.72)
+    /// Borrowed, altered or otherwise from outside it.
+    public static let chromatic = Color(red: 1.0, green: 0.78, blue: 0.42)
 
     /// Held keys are coloured by what the note is doing in the chord. Four
     /// colours is the most that stays readable at a glance; beyond that it is
