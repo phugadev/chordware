@@ -90,6 +90,17 @@ well on dense, distorted or heavily percussive material, where the harmony is
 genuinely ambiguous in the spectrum. It is a musical assistant, not a
 transcription oracle. MIDI input has no such limits — it is exact.
 
+## Getting to it
+
+Chordware has no Dock icon. The menu bar item is the usual way in, but on a
+notched MacBook with a busy menu bar the status item can end up behind the
+notch where it cannot be clicked, so there is a global shortcut too:
+
+| | |
+|---|---|
+| `Control-Option-Command-C` | show or hide the companion window |
+| menu bar > Quit | or `Command-Q` from the menu |
+
 ## Passthrough, and why it is off
 
 Chordware publishes a virtual MIDI source called `Chordware`. Turning on

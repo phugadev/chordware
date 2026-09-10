@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import ChordwareCore
 import ChordwareEngine
 import ChordwareIsland
@@ -24,6 +25,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var demo: DemoDriver?
     private var companion: CompanionWindowController?
     private var menuBar: MenuBarController?
+    private var companionHotKey: GlobalHotKey?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let arguments = CommandLine.arguments
@@ -107,6 +109,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         menuBar.install()
         self.menuBar = menuBar
+
+        // Control-Option-Command-C. The status item is unreachable on a
+        // notched MacBook with a busy menu bar, so there has to be another way
+        // in that does not depend on menu bar real estate.
+        let hotKey = GlobalHotKey { companion.toggle() }
+        hotKey.register(keyCode: UInt32(kVK_ANSI_C),
+                        modifiers: UInt32(cmdKey | optionKey | controlKey))
+        companionHotKey = hotKey
 
         if arguments.contains("--window") { companion.show() }
 

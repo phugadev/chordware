@@ -68,14 +68,27 @@ public enum IslandRenderer {
                                          sounding: false) {
             written.append(url)
         }
+        // One key and two keys are not chords, but must still read out.
+        if let url = try renderCompanion(to: directory.appendingPathComponent("companion-single.png"),
+                                         notes: [62]) {
+            written.append(url)
+        }
+        if let url = try renderCompanion(to: directory.appendingPathComponent("companion-dyad.png"),
+                                         notes: [60, 67]) {
+            written.append(url)
+        }
         return written
     }
 
     /// Render the companion window's contents at its default size.
-    public static func renderCompanion(to url: URL, sounding: Bool = true) throws -> URL? {
+    public static func renderCompanion(to url: URL, sounding: Bool = true,
+                                       notes: [Int]? = nil) throws -> URL? {
         let model = IslandPreviewData.model(state: .glance)
         model.isSounding = sounding
         if !sounding { model.heldNotes = [] }
+        if let notes {
+            model.presentNotesOnly(notes, atMs: 0)
+        }
         let view = CompanionView(model: model).frame(width: 900, height: 600)
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2

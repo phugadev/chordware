@@ -8,14 +8,18 @@ public struct MIDIEndpoint: Identifiable, Hashable, Sendable {
     public let manufacturer: String
     /// True for ports that speak a control-surface protocol rather than music.
     public let isControlSurface: Bool
+    /// True for software ports published by other apps rather than hardware.
+    public let isVirtual: Bool
 
     public var displayName: String { name }
 
-    public init(id: Int32, name: String, manufacturer: String, isControlSurface: Bool) {
+    public init(id: Int32, name: String, manufacturer: String,
+                isControlSurface: Bool, isVirtual: Bool = false) {
         self.id = id
         self.name = name
         self.manufacturer = manufacturer
         self.isControlSurface = isControlSurface
+        self.isVirtual = isVirtual
     }
 }
 
@@ -35,10 +39,21 @@ public final class MIDIInputEngine {
 
     public var onMessage: ((MIDIMessage) -> Void)?
     public var onEndpointsChanged: (([MIDIEndpoint]) -> Void)?
+    /// The endpoint that most recently sent a note, which is the only reliable
+    /// answer to "what am I playing on".
+    public private(set) var lastActiveEndpointID: Int32?
+    public var onActiveEndpointChanged: ((MIDIEndpoint?) -> Void)?
+
+    public var lastActiveEndpoint: MIDIEndpoint? {
+        lastActiveEndpointID.flatMap { id in endpoints.first { $0.id == id } }
+    }
 
     private var client = MIDIClientRef()
     private var inputPort = MIDIPortRef()
     private var connected: Set<Int32> = []
+    /// One heap slot per connection, holding the endpoint's id, handed to
+    /// CoreMIDI as the connection refCon so arriving events can be attributed.
+    private var connectionTokens: [Int32: UnsafeMutablePointer<Int32>] = [:]
     private var started = false
 
     public init() {}
@@ -68,7 +83,8 @@ public final class MIDIInputEngine {
 
         status = MIDIInputPortCreateWithProtocol(
             client, "Chordware In" as CFString, ._1_0, &inputPort
-        ) { [weak self] eventListPointer, _ in
+        ) { [weak self] eventListPointer, sourceRefCon in
+            let sourceUID = sourceRefCon?.assumingMemoryBound(to: Int32.self).pointee
             // Runs on CoreMIDI's realtime thread: decode here, deliver on main.
             var messages: [MIDIMessage] = []
             let list = eventListPointer.pointee
@@ -91,6 +107,10 @@ public final class MIDIInputEngine {
             guard !messages.isEmpty else { return }
             Task { @MainActor [weak self] in
                 guard let self else { return }
+                if let sourceUID, case .noteOn = messages.first, self.lastActiveEndpointID != sourceUID {
+                    self.lastActiveEndpointID = sourceUID
+                    self.onActiveEndpointChanged?(self.lastActiveEndpoint)
+                }
                 for message in messages { self.onMessage?(message) }
             }
         }
@@ -116,11 +136,16 @@ public final class MIDIInputEngine {
             var uid: Int32 = 0
             MIDIObjectGetIntegerProperty(source, kMIDIPropertyUniqueID, &uid)
             let name = Self.stringProperty(source, kMIDIPropertyDisplayName) ?? "Unknown"
+            // A virtual endpoint has no entity behind it; hardware does. That
+            // is how "Logic Pro Virtual Out" is told apart from a keyboard.
+            var entity = MIDIEntityRef()
+            let isVirtual = MIDIEndpointGetEntity(source, &entity) != noErr
             found.append(MIDIEndpoint(
                 id: uid,
                 name: name,
                 manufacturer: Self.stringProperty(source, kMIDIPropertyManufacturer) ?? "",
-                isControlSurface: Self.isControlSurface(name: name)
+                isControlSurface: Self.isControlSurface(name: name),
+                isVirtual: isVirtual
             ))
         }
         endpoints = found.filter { !excluded.contains($0.id) }
@@ -156,13 +181,25 @@ public final class MIDIInputEngine {
     }
 
     private func connect(uid: Int32) {
-        guard let endpoint = Self.endpoint(for: uid) else { return }
-        MIDIPortConnectSource(inputPort, endpoint, nil)
+        guard let endpoint = Self.endpoint(for: uid), connectionTokens[uid] == nil else { return }
+        let token = UnsafeMutablePointer<Int32>.allocate(capacity: 1)
+        token.initialize(to: uid)
+        connectionTokens[uid] = token
+        MIDIPortConnectSource(inputPort, endpoint, token)
     }
 
     private func disconnect(uid: Int32) {
-        guard let endpoint = Self.endpoint(for: uid) else { return }
-        MIDIPortDisconnectSource(inputPort, endpoint)
+        if let endpoint = Self.endpoint(for: uid) {
+            MIDIPortDisconnectSource(inputPort, endpoint)
+        }
+        if let token = connectionTokens.removeValue(forKey: uid) {
+            token.deinitialize(count: 1)
+            token.deallocate()
+        }
+        if lastActiveEndpointID == uid {
+            lastActiveEndpointID = nil
+            onActiveEndpointChanged?(nil)
+        }
     }
 
     private static func endpoint(for uid: Int32) -> MIDIEndpointRef? {

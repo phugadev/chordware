@@ -8,7 +8,7 @@ struct ExpandedDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(model.chord?.fullName ?? "\u{2014}")
+                Text(model.displayDetail)
                     .font(IslandTheme.labelFont(11))
                     .foregroundStyle(IslandTheme.secondary)
                     .lineLimit(1)

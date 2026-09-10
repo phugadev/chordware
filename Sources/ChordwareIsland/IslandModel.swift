@@ -93,6 +93,40 @@ public final class IslandModel {
     public init() {}
 
     public var chord: Chord? { candidates.first?.chord }
+
+    /// What to put where the chord symbol goes.
+    ///
+    /// One key is not a chord and two are an interval, but both are worth
+    /// showing: silence there makes the app look broken when it is working
+    /// correctly, and for teaching or screen recording the single note is
+    /// exactly what the viewer needs to see.
+    public var displaySymbol: String {
+        if let chord { return chord.symbol(unicode: true) }
+        switch heldNotes.count {
+        case 0: return "\u{2014}"
+        case 1:
+            let pc = PitchClass(heldNotes[0])
+            return SpelledNote.natural(pc, preferFlats: key?.preferFlats ?? false)
+                .name(unicode: true)
+        default:
+            let names = heldNotes.sorted().map {
+                SpelledNote.natural(PitchClass($0), preferFlats: key?.preferFlats ?? false).name(unicode: true)
+            }
+            return names.joined(separator: "\u{2009}\u{2013}\u{2009}")
+        }
+    }
+
+    public var displayDetail: String {
+        if let chord { return chord.fullName }
+        switch heldNotes.count {
+        case 0: return "play something"
+        case 1: return "single note \u{00B7} \(MIDINote.name(heldNotes[0]))"
+        case 2:
+            return ChordDetector.describeDyad(midiNotes: heldNotes).map { "interval \u{00B7} \($0)" }
+                ?? "two notes"
+        default: return "no chord matches these notes"
+        }
+    }
     public var confidence: Double { candidates.first?.confidence ?? 0 }
     public var alternatives: [ChordCandidate] { Array(candidates.dropFirst()) }
 
@@ -105,6 +139,18 @@ public final class IslandModel {
     public var scaleFits: [(scale: Scale, root: SpelledNote, score: Double)] {
         guard let chord else { return [] }
         return ChordScaleMap.scales(for: chord, limit: 6)
+    }
+
+    /// Show notes that do not form a nameable chord, so a single key still
+    /// lights up and reads out.
+    public func presentNotesOnly(_ notes: [Int], atMs time: Int) {
+        candidates = []
+        heldNotes = notes
+        isSounding = !notes.isEmpty
+        switch state {
+        case .idle, .glance, .toast: state = notes.isEmpty ? .idle : .glance
+        case .expanded, .act: break
+        }
     }
 
     /// Push a new detection into the island, moving it out of idle.

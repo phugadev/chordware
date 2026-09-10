@@ -67,7 +67,12 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(.separator())
         }
 
-        add(menu, "Companion Window", key: "0") { [weak self] in self?.actions.openCompanion() }
+        let window = NSMenuItem(title: "Companion Window", action: #selector(fire(_:)),
+                                keyEquivalent: "c")
+        window.keyEquivalentModifierMask = [.command, .option, .control]
+        window.target = self
+        window.representedObject = Box { [weak self] in self?.actions.openCompanion() }
+        menu.addItem(window)
         add(menu, "Keep Window on Top", key: "t", checked: currentAlwaysOnTop()) { [weak self] in
             self?.actions.toggleAlwaysOnTop()
         }

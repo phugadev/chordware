@@ -184,8 +184,8 @@ struct GlanceLeft: View {
     var model: IslandModel
 
     var body: some View {
-        if let chord = model.chord {
-            Text(chord.symbol(unicode: true))
+        if model.isSounding || model.chord != nil {
+            Text(model.displaySymbol)
                 .font(IslandTheme.chordFont(16))
                 .foregroundStyle(IslandTheme.primary)
                 .lineLimit(1)

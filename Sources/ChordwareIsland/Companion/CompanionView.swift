@@ -35,13 +35,13 @@ public struct CompanionView: View {
     private var header: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(model.chord?.symbol(unicode: true) ?? "\u{2014}")
+                Text(model.displaySymbol)
                     .font(.system(size: 60, weight: .semibold, design: .rounded))
                     .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
                     .contentTransition(.numericText())
-                Text(model.chord?.fullName ?? "play something")
+                Text(model.displayDetail)
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundStyle(IslandTheme.secondary)
                     .lineLimit(1)
@@ -75,7 +75,8 @@ public struct CompanionView: View {
     private var keyboard: some View {
         MiniPiano(heldNotes: model.heldNotes,
                   scaleNotes: model.key?.pitchClasses ?? [],
-                  showsOctaveLabels: true)
+                  showsOctaveLabels: true,
+                  namesHeldNotes: true)
             .frame(height: 132)
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
@@ -107,29 +108,65 @@ public struct CompanionView: View {
                                 .lineLimit(1)
                         }
                     }
+                } else if !model.heldNotes.isEmpty {
+                    // Not a chord, but still worth naming: which note, and where
+                    // it sits in the key.
+                    ForEach(model.heldNotes.sorted(), id: \.self) { note in
+                        HStack(spacing: 8) {
+                            Text(SpelledNote.natural(PitchClass(note),
+                                                     preferFlats: model.key?.preferFlats ?? false)
+                                .name(unicode: true))
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundStyle(IslandTheme.primary)
+                                .frame(width: 34, alignment: .leading)
+                            Text(MIDINote.name(note))
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundStyle(IslandTheme.tertiary)
+                                .frame(width: 30, alignment: .leading)
+                            Text(degreeDescription(of: note))
+                                .font(.system(size: 11, design: .rounded))
+                                .foregroundStyle(IslandTheme.secondary)
+                                .lineLimit(1)
+                        }
+                    }
+                } else {
+                    Text("nothing held")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(IslandTheme.tertiary)
                 }
             }
 
             column("ALSO READS AS") {
-                if model.alternatives.isEmpty {
+                if model.chord == nil {
+                    Text(model.heldNotes.isEmpty ? "\u{2014}" : "not a named chord")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(IslandTheme.tertiary)
+                } else if model.alternatives.isEmpty {
                     Text("unambiguous")
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(IslandTheme.tertiary)
-                }
-                ForEach(Array(model.alternatives.prefix(4).enumerated()), id: \.offset) { _, alt in
-                    HStack(spacing: 8) {
-                        Text(alt.chord.symbol(unicode: true))
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(IslandTheme.secondary)
-                            .frame(width: 86, alignment: .leading)
-                            .lineLimit(1)
-                        ConfidenceBar(value: alt.confidence, width: 44)
+                } else {
+                    ForEach(Array(model.alternatives.prefix(4).enumerated()), id: \.offset) { _, alt in
+                        HStack(spacing: 8) {
+                            Text(alt.chord.symbol(unicode: true))
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundStyle(IslandTheme.secondary)
+                                .frame(width: 86, alignment: .leading)
+                                .lineLimit(1)
+                            ConfidenceBar(value: alt.confidence, width: 44)
+                        }
                     }
                 }
             }
 
             column("SCALES THAT FIT") {
-                ForEach(Array(model.scaleFits.prefix(5).enumerated()), id: \.offset) { _, fit in
+                let fits = model.scaleFits
+                if fits.isEmpty {
+                    Text("\u{2014}")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(IslandTheme.tertiary)
+                }
+                ForEach(Array(fits.prefix(5).enumerated()), id: \.offset) { _, fit in
                     VStack(alignment: .leading, spacing: 1) {
                         Text("\(fit.root.name()) \(fit.scale.name)")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -145,6 +182,16 @@ public struct CompanionView: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 18)
+    }
+
+    /// Where a lone note sits in the current key, in words.
+    private func degreeDescription(of note: Int) -> String {
+        guard let key = model.key else { return "" }
+        let names = ["root", "2nd", "3rd", "4th", "5th", "6th", "7th"]
+        if let degree = key.scaleDegree(of: PitchClass(note)), degree - 1 < names.count {
+            return "\(names[degree - 1]) of \(key.name)"
+        }
+        return "outside \(key.name)"
     }
 
     @ViewBuilder

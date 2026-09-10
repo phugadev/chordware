@@ -22,6 +22,7 @@ final class SessionBridge {
         session.onUpdate = { [weak self] update in self?.apply(update) }
         session.onError = { [weak self] error in self?.report(error) }
         session.midiIn.onEndpointsChanged = { [weak self] _ in self?.refreshInputLabel() }
+        session.midiIn.onActiveEndpointChanged = { [weak self] _ in self?.refreshInputLabel() }
     }
 
     func start() {
@@ -35,7 +36,18 @@ final class SessionBridge {
         switch session.source {
         case .midi:
             let active = session.midiIn.activeEndpoints
-            model.inputLabel = active.first?.name ?? "no MIDI input"
+            // Name whatever last actually sent a note. Falling back to the
+            // first connected port labels the app "Logic Pro Virtual Out" when
+            // the keyboard is unplugged, which tells the player nothing.
+            if let playing = session.midiIn.lastActiveEndpoint {
+                model.inputLabel = playing.name
+            } else if let hardware = active.first(where: { !$0.isVirtual }) {
+                model.inputLabel = hardware.name
+            } else if active.isEmpty {
+                model.inputLabel = "no MIDI device connected"
+            } else {
+                model.inputLabel = "waiting for MIDI\u{2026}"
+            }
         case .audio:
             model.inputLabel = session.audioIn.currentDevice?.name ?? "no audio input"
         }
@@ -45,7 +57,14 @@ final class SessionBridge {
         model.chroma = update.chroma
 
         guard !update.candidates.isEmpty else {
-            model.clearNotes(atMs: update.timeMs)
+            // No chord does not mean no music. One key held is a note and two
+            // are an interval; both should stay on screen and lit.
+            if update.notes.isEmpty {
+                model.clearNotes(atMs: update.timeMs)
+            } else {
+                model.key = update.key
+                model.presentNotesOnly(update.notes, atMs: update.timeMs)
+            }
             return
         }
 
