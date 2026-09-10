@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+dist/
+*.dSYM/
+.DS_Store
+Chordware.app/
+*.dmg
+Resources/Chordware.icns
+Resources/Chordware.iconset/
