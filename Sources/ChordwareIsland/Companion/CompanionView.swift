@@ -18,107 +18,108 @@ public struct CompanionView: View {
 
     private var hasSomethingToShow: Bool { model.chord != nil || !model.heldNotes.isEmpty }
 
-    // Sizes differ between modes; the structure does not.
-    private var symbolSize: CGFloat { model.isCompactLayout ? 40 : 60 }
-    private var numeralSize: CGFloat { model.isCompactLayout ? 22 : 38 }
-    private var keyboardHeight: CGFloat { model.isCompactLayout ? 108 : 132 }
-
-    /// Natural height of the panel below the keyboard.
-    private static let panelHeight: CGFloat = 300
-
     public var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().overlay(IslandTheme.hairline)
-            keyboardView(height: keyboardHeight)
-                .padding(.horizontal, model.isCompactLayout ? 16 : 20)
-                .padding(.vertical, model.isCompactLayout ? 12 : 18)
-
-            // The panel is *revealed by the window*, not swapped for another
-            // view. Building a different tree per mode gives each its own view
-            // identity, so SwiftUI cross-fades them -- the panel dissolves
-            // while the window resizes underneath it, on a different curve.
-            // Holding it at its natural height inside a flexible clipping frame
-            // means shrinking the window slides it away instead.
-            // The panel's height is driven by the mode, not by whatever space
-            // happens to be left over. Leaving it to fill the remainder meant
-            // presentation mode still had room for about forty points of it,
-            // so the column headings showed under the keyboard.
-            //
-            // It hangs in an overlay rather than sitting in the stack because a
-            // rigid `.frame(height:)` inside the layout is reported upward as a
-            // *minimum*, and NSHostingView then refuses to let the window
-            // shrink past it.
-            Color.clear
-                .frame(height: model.isCompactLayout ? 0 : Self.panelHeight)
-                .frame(maxWidth: .infinity)
-                .overlay(alignment: .top) {
-                    panel.frame(height: Self.panelHeight, alignment: .top)
-                }
-                .clipped()
-            Spacer(minLength: 0)
+        Group {
+            if model.isCompactLayout { presentation } else { full }
         }
-        // Anchor to the top and clip. Mid-resize the content is briefly taller
-        // than the window, and a centred stack loses the same amount off both
-        // ends -- which takes the chord name with it. Overflow has to fall off
-        // the bottom, where the panel is, because that is the part being
-        // dismissed.
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .clipped()
         .background(IslandTheme.background)
         .preferredColorScheme(.dark)
         .animation(IslandTheme.modeTransition, value: model.displayMode)
     }
 
-    /// One header for both modes. Only the type sizes and two collapsing rows
-    /// differ, so nothing has to move across the window when the mode changes.
+    /// Everything, with the panel taking whatever space is left and the footer
+    /// sitting on the bottom edge.
+    ///
+    /// This was briefly rebuilt as a single tree shared with presentation mode,
+    /// so switching between them could animate as one movement. Sharing forced
+    /// the panel to a fixed height; the fixed height forced a taller window;
+    /// the taller window pushed the footer off the bottom; and the fixed height
+    /// was then reported upward as the window's minimum. Three regressions for
+    /// a smoother quarter-second. The layouts are separate again.
+    private var full: some View {
+        VStack(spacing: 0) {
+            header
+            Divider().overlay(IslandTheme.hairline)
+            keyboardView(height: 132)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 18)
+            Divider().overlay(IslandTheme.hairline)
+            detail
+            legend
+            Spacer(minLength: 0)
+            footer
+        }
+    }
+
+    /// The least that still communicates what is being played.
+    private var presentation: some View {
+        VStack(spacing: 0) {
+            compactHeader
+            Divider().overlay(IslandTheme.hairline)
+            keyboardView(height: 108)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+        }
+    }
+
     private var header: some View {
-        // Baseline alignment between a 40-point symbol and a 22-point numeral
-        // inflates the row by the difference in their ascents, which is how
-        // presentation mode ended up with a header tall enough to clip the
-        // keyboard. Compact centres a single row instead.
-        HStack(alignment: model.isCompactLayout ? .center : .firstTextBaseline, spacing: 16) {
+        HStack(alignment: .firstTextBaseline, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
                 if hasSomethingToShow {
                     Text(model.displaySymbol)
-                        .animatableFont(size: symbolSize)
+                        .font(.system(size: 60, weight: .semibold, design: .rounded))
                         .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.4)
                         .contentTransition(.numericText())
-                    if !model.isCompactLayout {
-                        Text(model.displayDetail)
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundStyle(IslandTheme.secondary)
-                            .lineLimit(1)
-                    }
+                    Text(model.displayDetail)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(IslandTheme.secondary)
+                        .lineLimit(1)
                 } else {
                     // An em dash set at sixty points is a grey slab, and reads
                     // as a broken element rather than as "nothing yet".
                     Text("play something")
-                        .animatableFont(size: symbolSize * 0.45, weight: .medium)
+                        .font(.system(size: 27, weight: .medium, design: .rounded))
                         .foregroundStyle(IslandTheme.tertiary)
                         .lineLimit(1)
                 }
             }
             Spacer(minLength: 12)
-            if model.isCompactLayout {
-                compactTrailing
-            } else {
-                expandedTrailing
-            }
+            expandedTrailing
         }
-        .padding(.horizontal, model.isCompactLayout ? 20 : 24)
-        .padding(.top, model.isCompactLayout ? 12 : 20)
-        .padding(.bottom, model.isCompactLayout ? 6 : 16)
+        .padding(.horizontal, 24)
+        .padding(.top, 20)
+        .padding(.bottom, 16)
     }
 
-    /// Numeral and key on one line, so the header stays one row tall.
+    /// One row: chord on the left, numeral and key on the right.
+    private var compactHeader: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Text(hasSomethingToShow ? model.displaySymbol : "play something")
+                .font(.system(size: hasSomethingToShow ? 40 : 20,
+                              weight: hasSomethingToShow ? .semibold : .medium,
+                              design: .rounded))
+                .foregroundStyle(hasSomethingToShow
+                                 ? (model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
+                                 : IslandTheme.tertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+                .contentTransition(.numericText())
+            Spacer(minLength: 12)
+            compactTrailing
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    /// Numeral and key on one line, so the compact header stays one row tall.
     private var compactTrailing: some View {
         HStack(spacing: 10) {
             if let numeral = model.romanNumeral {
                 Text(numeral.symbol(naming: model.naming))
-                    .animatableFont(size: numeralSize)
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
                     .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
                     .lineLimit(1)
             }
@@ -130,19 +131,19 @@ public struct CompanionView: View {
 
     private var expandedTrailing: some View {
         VStack(alignment: .trailing, spacing: 4) {
-                if let numeral = model.romanNumeral {
-                    Text(numeral.symbol(naming: model.naming))
-                        .animatableFont(size: numeralSize)
-                        .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
-                        .lineLimit(1)
-                    Text(numeral.explanation ?? numeral.function.name)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
-                        .lineLimit(1)
-                }
-                if let key = model.key {
-                    keyLabel(key, compact: false)
-                }
+            if let numeral = model.romanNumeral {
+                Text(numeral.symbol(naming: model.naming))
+                    .font(.system(size: 38, weight: .semibold, design: .rounded))
+                    .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
+                    .lineLimit(1)
+                Text(numeral.explanation ?? numeral.function.name)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(IslandTheme.tertiary)
+                    .lineLimit(1)
+            }
+            if let key = model.key {
+                keyLabel(key, compact: false)
+            }
         }
     }
 
@@ -161,19 +162,7 @@ public struct CompanionView: View {
         }
     }
 
-    /// Everything below the keyboard, at its natural height.
-    private var panel: some View {
-        VStack(spacing: 0) {
-            Divider().overlay(IslandTheme.hairline)
-            detail
-            legend
-            Spacer(minLength: 0)
-            footer
-        }
-    }
 
-    /// One keyboard, shared by every mode. Modes differ in what surrounds it,
-    /// never in how the instrument itself is drawn.
     private func keyboardView(height: CGFloat) -> some View {
         MiniPiano(heldNotes: model.heldNotes,
                   lowNote: model.keyboardLowNote,

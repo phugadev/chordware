@@ -102,7 +102,7 @@ public enum IslandRenderer {
                                        notes: [Int]? = nil,
                                        mode: DisplayMode = .companion,
                                        naming: NoteNaming = .letters,
-                                       size: CGSize = CGSize(width: 900, height: 624)) throws -> URL? {
+                                       size: CGSize = CGSize(width: 900, height: 600)) throws -> URL? {
         let model = IslandPreviewData.model(state: .glance)
         model.isSounding = sounding
         model.displayMode = mode
