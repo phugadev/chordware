@@ -93,8 +93,21 @@ public final class IslandModel {
     public var sustainDown = false
     /// Velocity per held note, used to shade how hard each key was struck.
     public var velocities: [Int: Int] = [:]
-    /// Which of the three displays is showing.
-    public var displayMode: DisplayMode = .companion
+    /// Which display is showing. Persisted: the window remembers its size
+    /// across launches, so if the mode did not, the two would disagree and the
+    /// full layout could come back in a window sized for the stripped one.
+    public var displayMode: DisplayMode = IslandModel.loadDisplayMode() {
+        didSet { IslandModel.store(displayMode) }
+    }
+
+    private static let displayModeKey = "ChordwareDisplayMode"
+    private static func loadDisplayMode() -> DisplayMode {
+        UserDefaults.standard.string(forKey: displayModeKey)
+            .flatMap(DisplayMode.init(rawValue:)) ?? .companion
+    }
+    private static func store(_ mode: DisplayMode) {
+        UserDefaults.standard.set(mode.rawValue, forKey: displayModeKey)
+    }
 
     public var isCompactLayout: Bool { displayMode.usesCompactLayout }
     /// Set when the player has named the key rather than letting it be guessed.

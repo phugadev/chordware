@@ -16,6 +16,8 @@ public struct CompanionView: View {
         self.onClose = onClose
     }
 
+    private var hasSomethingToShow: Bool { model.chord != nil || !model.heldNotes.isEmpty }
+
     // Sizes differ between modes; the structure does not.
     private var symbolSize: CGFloat { model.isCompactLayout ? 40 : 60 }
     private var numeralSize: CGFloat { model.isCompactLayout ? 22 : 38 }
@@ -38,9 +40,16 @@ public struct CompanionView: View {
             // while the window resizes underneath it, on a different curve.
             // Holding it at its natural height inside a flexible clipping frame
             // means shrinking the window slides it away instead.
-            panel
-                .frame(height: Self.panelHeight, alignment: .top)
-                .frame(maxHeight: .infinity, alignment: .top)
+            // The panel hangs in an overlay rather than sitting in the stack.
+            // A rigid `.frame(height:)` in the layout is reported upwards as a
+            // *minimum*, so NSHostingView refused to let the window shrink past
+            // it and presentation mode came back 300 points too tall. An
+            // overlay draws at its natural height without contributing one.
+            Color.clear
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .top) {
+                    panel.frame(height: Self.panelHeight, alignment: .top)
+                }
                 .clipped()
         }
         // Anchor to the top and clip. Mid-resize the content is briefly taller
@@ -60,16 +69,25 @@ public struct CompanionView: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text(model.displaySymbol)
-                    .animatableFont(size: symbolSize)
-                    .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .contentTransition(.numericText())
-                if !model.isCompactLayout {
-                    Text(model.displayDetail)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.secondary)
+                if hasSomethingToShow {
+                    Text(model.displaySymbol)
+                        .animatableFont(size: symbolSize)
+                        .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
+                        .contentTransition(.numericText())
+                    if !model.isCompactLayout {
+                        Text(model.displayDetail)
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .foregroundStyle(IslandTheme.secondary)
+                            .lineLimit(1)
+                    }
+                } else {
+                    // An em dash set at sixty points is a grey slab, and reads
+                    // as a broken element rather than as "nothing yet".
+                    Text("play something")
+                        .animatableFont(size: symbolSize * 0.45, weight: .medium)
+                        .foregroundStyle(IslandTheme.tertiary)
                         .lineLimit(1)
                 }
             }

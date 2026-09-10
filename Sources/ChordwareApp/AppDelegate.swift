@@ -87,7 +87,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // A background app with no Dock icon needs a status item, or there is
         // no way to open the window, change input, or even quit.
         let menuBar = MenuBarController(actions: .init(
-            openCompanion: { companion.toggle() },
+            openCompanion: { [weak self] in
+                let wasVisible = companion.isVisible
+                companion.toggle()
+                // Opening has to reassert the mode, or a window restored at one
+                // size shows the layout for another.
+                if !wasVisible, let self { companion.apply(mode: self.model.displayMode) }
+            },
             toggleAlwaysOnTop: { companion.setAlwaysOnTop(!companion.isAlwaysOnTop) },
             setDisplayMode: { [weak self] mode in
                 guard let self else { return }
@@ -159,7 +165,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             modifiers: UInt32(cmdKey | optionKey | controlKey))
         presentationHotKeyRef = modeHotKey
 
-        if arguments.contains("--window") { companion.show() }
+        if arguments.contains("--window") {
+            companion.show()
+            companion.apply(mode: model.displayMode)
+        }
 
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,

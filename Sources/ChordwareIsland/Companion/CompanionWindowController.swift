@@ -11,10 +11,36 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
 
     public var isVisible: Bool { window?.isVisible ?? false }
     public private(set) var isAlwaysOnTop = false
-    private var expandedFrame: NSRect?
-
     /// Room for the keyboard at its natural key size, plus one header row.
     private static let compactSize = NSSize(width: 810, height: 236)
+    private static let companionSize = NSSize(width: 900, height: 600)
+    private static let companionMinimum = NSSize(width: 700, height: 520)
+    private static let compactMinimum = NSSize(width: 520, height: 180)
+
+    /// The companion frame, kept across launches.
+    ///
+    /// This used to live only in memory, and AppKit's own window autosave was
+    /// writing the same thing from the other side. Switching to presentation
+    /// let the autosave record the *compact* frame; quitting lost the way back;
+    /// and relaunching restored a compact-sized window with the full layout in
+    /// it. One owner, persisted.
+    private static let companionFrameKey = "ChordwareCompanionFrame"
+
+    private var storedCompanionFrame: NSRect? {
+        get {
+            guard let values = UserDefaults.standard.array(forKey: Self.companionFrameKey) as? [Double],
+                  values.count == 4 else { return nil }
+            return NSRect(x: values[0], y: values[1], width: values[2], height: values[3])
+        }
+        set {
+            guard let newValue else {
+                UserDefaults.standard.removeObject(forKey: Self.companionFrameKey)
+                return
+            }
+            UserDefaults.standard.set([newValue.minX, newValue.minY, newValue.width, newValue.height],
+                                      forKey: Self.companionFrameKey)
+        }
+    }
 
     public init(model: IslandModel) {
         self.model = model
@@ -41,13 +67,17 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.backgroundColor = NSColor.black
-        window.minSize = NSSize(width: 700, height: 520)
+        window.minSize = Self.companionMinimum
         window.delegate = self
         window.contentView = NSHostingView(rootView: CompanionView(model: model))
-        // Remembers where the user put it, including which display.
-        window.setFrameAutosaveName("ChordwareCompanion")
 
-        if window.frame.origin == .zero { positionOnPreferredScreen(window) }
+        // Restore the companion frame we saved ourselves, never a compact one,
+        // and only if it is still usable and still on a connected screen.
+        if let saved = storedCompanionFrame, isUsable(saved) {
+            window.setFrame(saved, display: false)
+        } else {
+            positionOnPreferredScreen(window)
+        }
 
         self.window = window
         window.makeKeyAndOrderFront(nil)
@@ -65,7 +95,11 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     public func apply(mode: DisplayMode) {
         guard let window else { return }
         if mode.usesCompactLayout {
-            if expandedFrame == nil { expandedFrame = window.frame }
+            // Remember where companion was before shrinking, but never record a
+            // compact frame as the companion one.
+            if window.frame.height > Self.compactSize.height + 40 {
+                storedCompanionFrame = window.frame
+            }
             let current = window.frame
             // Grow downward from the existing top-left, so the window does not
             // appear to jump across the screen.
@@ -73,12 +107,16 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
                                 y: current.maxY - Self.compactSize.height,
                                 width: Self.compactSize.width,
                                 height: Self.compactSize.height)
-            window.minSize = NSSize(width: 520, height: 180)
+            window.minSize = Self.compactMinimum
             resize(window, to: target)
         } else {
-            window.minSize = NSSize(width: 700, height: 520)
-            if let expandedFrame { resize(window, to: expandedFrame) }
-            expandedFrame = nil
+            window.minSize = Self.companionMinimum
+            // Grow to *something* valid whatever the window was left at. The
+            // failure this replaces was a companion layout stuck in a window
+            // too small to hold it, with no way back.
+            let target = storedCompanionFrame.flatMap { isUsable($0) ? $0 : nil }
+                ?? defaultCompanionFrame(near: window.frame)
+            resize(window, to: target)
         }
     }
 
@@ -103,6 +141,25 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         window?.level = onTop ? .floating : .normal
     }
 
+    /// A frame is usable if it is big enough for the companion layout and at
+    /// least partly on a screen that is still connected.
+    private func isUsable(_ frame: NSRect) -> Bool {
+        guard frame.width >= Self.companionMinimum.width,
+              frame.height >= Self.companionMinimum.height else { return false }
+        return NSScreen.screens.contains { $0.visibleFrame.intersects(frame) }
+    }
+
+    private func defaultCompanionFrame(near current: NSRect) -> NSRect {
+        let screen = NSScreen.screens.first { $0.visibleFrame.intersects(current) }
+            ?? NSScreen.screens.first { $0.safeAreaInsets.top == 0 }
+            ?? NSScreen.main
+        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let size = Self.companionSize
+        return NSRect(x: visible.midX - size.width / 2,
+                      y: visible.midY - size.height / 2,
+                      width: size.width, height: size.height)
+    }
+
     /// Open on a screen without a notch when there is one.
     ///
     /// If you have an external display, that is where you are looking while you
@@ -119,8 +176,13 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         ))
     }
 
+    public func windowDidEndLiveResize(_ notification: Notification) {
+        guard let window, window.frame.height > Self.compactSize.height + 40 else { return }
+        storedCompanionFrame = window.frame
+    }
+
     public func windowWillClose(_ notification: Notification) {
-        // Keep the instance so the frame autosave and always-on-top setting
-        // survive a close/reopen.
+        // Keep the instance so the stored frame and the always-on-top setting
+        // survive a close and reopen.
     }
 }
