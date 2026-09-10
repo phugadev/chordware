@@ -83,7 +83,7 @@ public enum IslandRenderer {
             let name = "companion-\(mode.rawValue).png"
             if let url = try renderCompanion(to: directory.appendingPathComponent(name),
                                              mode: mode,
-                                             size: CGSize(width: 810, height: 236)) {
+                                             size: CGSize(width: 810, height: 200)) {
                 written.append(url)
             }
         }
@@ -102,7 +102,7 @@ public enum IslandRenderer {
                                        notes: [Int]? = nil,
                                        mode: DisplayMode = .companion,
                                        naming: NoteNaming = .letters,
-                                       size: CGSize = CGSize(width: 900, height: 600)) throws -> URL? {
+                                       size: CGSize = CGSize(width: 900, height: 624)) throws -> URL? {
         let model = IslandPreviewData.model(state: .glance)
         model.isSounding = sounding
         model.displayMode = mode

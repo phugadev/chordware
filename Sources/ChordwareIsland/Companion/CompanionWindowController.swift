@@ -20,7 +20,7 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     // header is taller than its type sizes suggest, because baseline
     // alignment between the symbol and the numeral adds the difference in
     // their ascents.
-    private static let companionContent = NSSize(width: 900, height: 640)
+    private static let companionContent = NSSize(width: 900, height: 624)
     private static let companionMinimum = NSSize(width: 700, height: 520)
     private static let compactMinimum = NSSize(width: 520, height: 170)
 

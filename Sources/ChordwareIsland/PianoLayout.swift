@@ -35,11 +35,12 @@ public struct PianoLayout: Equatable, Sendable {
 
     /// Widest a white key is allowed to get.
     ///
-    /// Without a cap the keyboard stretches to whatever the window is, so the
-    /// same instrument becomes slabs in a wide window and slivers in a narrow
-    /// one. A piano has fixed proportions; the window is a view onto it, not a
-    /// thing that reshapes it.
-    public static let maxWhiteWidth: CGFloat = 26
+    /// A ceiling, not a target. Without it the keyboard stretches to whatever
+    /// the window is and becomes slabs; set too low it caps before the window
+    /// does, and the instrument floats in dark margins instead of filling its
+    /// panel. At the sizes both windows actually use, the window is the
+    /// binding constraint and this only stops absurdity.
+    public static let maxWhiteWidth: CGFloat = 34
 
     public init(lowNote: Int, octaves: Int, size: CGSize,
                 maxWhiteWidth: CGFloat = PianoLayout.maxWhiteWidth) {
