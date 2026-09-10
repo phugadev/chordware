@@ -16,7 +16,9 @@ struct ExpandedDetail: View {
                 ConfidenceBar(value: model.confidence)
             }
 
-            MiniPiano(heldNotes: model.heldNotes, scaleNotes: scaleNotes, showsOctaveLabels: true)
+            MiniPiano(heldNotes: model.heldNotes, scaleNotes: scaleNotes,
+                      lowNote: model.keyboardLowNote, octaves: model.keyboardOctaves,
+                      showsOctaveLabels: true, chord: model.chord)
                 .frame(height: 46)
 
             if !model.alternatives.isEmpty {

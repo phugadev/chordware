@@ -20,6 +20,7 @@ public final class LiveSession {
         public let key: Key?
         public let keyConfidence: Double
         public let chroma: [Double]?
+        public let sustainDown: Bool
         public let timeMs: Int
     }
 
@@ -197,8 +198,21 @@ public final class LiveSession {
             key: effectiveKey,
             keyConfidence: lockedKey != nil ? 1 : keyConfidence,
             chroma: source == .audio ? lastChroma : nil,
+            sustainDown: held.sustainDown,
             timeMs: nowMs
         ))
+    }
+
+    /// Release everything, everywhere. The standard escape hatch for a stuck
+    /// note or a pedal that never came up.
+    public func panic() {
+        held.setSustain(false)
+        held.allNotesOff()
+        candidates = []
+        tracker.reset()
+        midiOut.allNotesOff()
+        synth.allNotesOff()
+        publish(notes: [])
     }
 
     /// Send a chord to the DAW through the virtual port, and audition it locally.

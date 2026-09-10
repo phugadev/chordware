@@ -1,5 +1,14 @@
 import Foundation
 
+/// What a note is doing inside a chord.
+///
+/// Colouring keys by this is worth more than colouring them all alike: the root
+/// and the third are what you need to see to know what you played, and picking
+/// them out of a voicing by eye is exactly the skill being learned.
+public enum ChordToneRole: String, Sendable, Hashable, CaseIterable {
+    case root, third, fifth, seventh, tension
+}
+
 /// A named chord: a root, a quality, and optionally a bass note that is not the
 /// root. `Chord` is spelling-aware, so it can render `Ab7` with a G♭ rather than
 /// an F♯ without consulting anything else.
@@ -61,6 +70,21 @@ public struct Chord: Hashable, Sendable, CustomStringConvertible {
             }
         }
         return text
+    }
+
+    /// What role a pitch class plays in this chord, if any.
+    public func role(of pc: PitchClass) -> ChordToneRole? {
+        let offset = root.pitchClass.distance(to: pc)
+        guard let tone = quality.tones.first(where: {
+            ((($0.interval.semitones % 12) + 12) % 12) == offset
+        }) else { return nil }
+        switch tone.interval.degree {
+        case 1: return .root
+        case 3: return .third
+        case 5: return .fifth
+        case 7: return .seventh
+        default: return .tension
+        }
     }
 
     /// Re-spell the same sounding chord for a different key context.

@@ -13,19 +13,25 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         public var chooseAudio: () -> Void
         public var togglePassthrough: () -> Void
         public var resetProgression: () -> Void
+        public var panic: () -> Void
+        public var resetKeyboardRange: () -> Void
 
         public init(openCompanion: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
                     chooseMIDI: @escaping () -> Void,
                     chooseAudio: @escaping () -> Void,
                     togglePassthrough: @escaping () -> Void,
-                    resetProgression: @escaping () -> Void) {
+                    resetProgression: @escaping () -> Void,
+                    panic: @escaping () -> Void,
+                    resetKeyboardRange: @escaping () -> Void) {
             self.openCompanion = openCompanion
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
             self.chooseMIDI = chooseMIDI
             self.chooseAudio = chooseAudio
             self.togglePassthrough = togglePassthrough
             self.resetProgression = resetProgression
+            self.panic = panic
+            self.resetKeyboardRange = resetKeyboardRange
         }
     }
 
@@ -99,6 +105,15 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         add(menu, "Clear Progression", key: "k") { [weak self] in self?.actions.resetProgression() }
+        add(menu, "Refit Keyboard to Controller", key: "") { [weak self] in
+            self?.actions.resetKeyboardRange()
+        }
+        let panic = NSMenuItem(title: "All Notes Off", action: #selector(fire(_:)), keyEquivalent: ".")
+        panic.keyEquivalentModifierMask = [.command]
+        panic.target = self
+        panic.representedObject = Box { [weak self] in self?.actions.panic() }
+        panic.toolTip = "Release every held note, for a stuck key or a pedal that never came up."
+        menu.addItem(panic)
         menu.addItem(.separator())
         add(menu, "Quit Chordware", key: "q") { NSApp.terminate(nil) }
     }

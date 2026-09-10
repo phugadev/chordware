@@ -85,6 +85,12 @@ public final class IslandModel {
     /// lift your hands, but a companion display should keep the last chord on
     /// screen. Both read the same model.
     public var isSounding = false
+    /// Drawn keyboard extent, learned from the connected controller.
+    public var keyboardLowNote = KeyboardRange.defaultLow
+    public var keyboardOctaves = 4
+    /// Pedal state. Shown because a stuck pedal is otherwise invisible and
+    /// looks exactly like the display refusing to let go of a chord.
+    public var sustainDown = false
 
     /// Filled by the generation engine; empty until then.
     public var suggestions: [ChordSuggestion] = []

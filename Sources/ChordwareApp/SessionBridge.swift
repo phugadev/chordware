@@ -15,6 +15,7 @@ final class SessionBridge {
     private let controller: IslandController
     private var lastKey: Key?
     private var lastCadenceIndex: Int?
+    private let keyboardRange = KeyboardRange()
 
     init(model: IslandModel, controller: IslandController) {
         self.model = model
@@ -22,7 +23,10 @@ final class SessionBridge {
         session.onUpdate = { [weak self] update in self?.apply(update) }
         session.onError = { [weak self] error in self?.report(error) }
         session.midiIn.onEndpointsChanged = { [weak self] _ in self?.refreshInputLabel() }
-        session.midiIn.onActiveEndpointChanged = { [weak self] _ in self?.refreshInputLabel() }
+        session.midiIn.onActiveEndpointChanged = { [weak self] endpoint in
+            self?.refreshInputLabel()
+            self?.adoptKeyboard(named: endpoint?.name)
+        }
     }
 
     func start() {
@@ -53,8 +57,26 @@ final class SessionBridge {
         }
     }
 
+    /// Learn the keyboard's extent from what gets played on it.
+    private func adoptKeyboard(named device: String?) {
+        guard keyboardRange.use(device: device) else { return }
+        applyRange()
+    }
+
+    private func applyRange() {
+        model.keyboardLowNote = keyboardRange.lowNote
+        model.keyboardOctaves = keyboardRange.octaves
+    }
+
+    func resetKeyboardRange() {
+        keyboardRange.reset()
+        applyRange()
+    }
+
     private func apply(_ update: LiveSession.Update) {
         model.chroma = update.chroma
+        model.sustainDown = update.sustainDown
+        if !update.notes.isEmpty, keyboardRange.observe(update.notes) { applyRange() }
 
         guard !update.candidates.isEmpty else {
             // No chord does not mean no music. One key held is a note and two

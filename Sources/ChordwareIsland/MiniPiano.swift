@@ -18,6 +18,8 @@ public struct MiniPiano: View {
     public var showsOctaveLabels: Bool
     /// Name the keys currently held, for teaching and for screen recording.
     public var namesHeldNotes: Bool
+    /// Colours held keys by their role in this chord, when there is one.
+    public var chord: Chord?
 
     /// C2 to C6, which covers where chords are actually voiced.
     private static let defaultLow = 36
@@ -31,11 +33,13 @@ public struct MiniPiano: View {
     public init(heldNotes: [Int], scaleNotes: Set<PitchClass> = [],
                 lowNote: Int? = nil, octaves: Int? = nil,
                 showsOctaveLabels: Bool = false,
-                namesHeldNotes: Bool = false) {
+                namesHeldNotes: Bool = false,
+                chord: Chord? = nil) {
         self.heldNotes = heldNotes
         self.scaleNotes = scaleNotes
         self.showsOctaveLabels = showsOctaveLabels
         self.namesHeldNotes = namesHeldNotes
+        self.chord = chord
 
         let lowest = min(heldNotes.min() ?? Self.defaultLow, Self.defaultLow)
         let highest = max(heldNotes.max() ?? Self.defaultHigh, Self.defaultHigh)
@@ -55,18 +59,22 @@ public struct MiniPiano: View {
             // annotation: in F major every B natural went dark, which looks
             // exactly like a rendering fault sitting next to every C. Scale
             // membership is a dot instead, which is clearly deliberate.
+            func heldColor(_ note: Int) -> Color {
+                IslandTheme.roleColor(chord?.role(of: PitchClass(note)))
+            }
+
             for key in layout.whiteKeys {
                 let rect = key.rect.insetBy(dx: 0.5, dy: 0)
                 let path = Path(roundedRect: rect, cornerRadius: 2)
                 context.fill(path, with: .color(held.contains(key.note)
-                                                ? IslandTheme.accent
+                                                ? heldColor(key.note)
                                                 : Color.white.opacity(0.82)))
             }
 
             for key in layout.blackKeys {
                 let path = Path(roundedRect: key.rect, cornerRadius: 2)
                 context.fill(path, with: .color(held.contains(key.note)
-                                                ? IslandTheme.accent
+                                                ? heldColor(key.note)
                                                 : Color(white: 0.13)))
                 context.stroke(path, with: .color(.black), lineWidth: 1)
             }
@@ -77,6 +85,9 @@ public struct MiniPiano: View {
             if !scaleNotes.isEmpty, size.height >= 40 {
                 for key in layout.keys where scaleNotes.contains(PitchClass(key.note)) {
                     guard !held.contains(key.note) else { continue }
+                    // A C already carries its octave label; a dot on top of it
+                    // is two marks fighting for the same few pixels.
+                    if showsOctaveLabels, !key.isBlack, PitchClass(key.note).value == 0 { continue }
                     let y = key.isBlack ? key.rect.maxY - dotSize * 1.8 : size.height - dotSize * 3.2
                     let dot = CGRect(x: key.rect.midX - dotSize / 2, y: y,
                                      width: dotSize, height: dotSize)

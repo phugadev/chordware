@@ -97,7 +97,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             resetProgression: { [weak self] in
                 self?.model.progression.clear()
                 self?.model.clearChord()
-            }
+            },
+            panic: { [weak self] in
+                self?.bridge?.session.panic()
+                self?.model.clearChord()
+            },
+            resetKeyboardRange: { [weak self] in self?.bridge?.resetKeyboardRange() }
         ))
         menuBar.currentSourceIsAudio = { [weak self] in self?.bridge?.session.source == .audio }
         menuBar.currentAlwaysOnTop = { companion.isAlwaysOnTop }

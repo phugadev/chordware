@@ -1,3 +1,4 @@
+import ChordwareCore
 import SwiftUI
 
 /// The island is always dark, in both system themes, because on a notched Mac
@@ -11,6 +12,39 @@ public enum IslandTheme {
     public static let hairline = Color.white.opacity(0.12)
 
     public static let accent = Color(red: 0.42, green: 0.78, blue: 1.0)
+
+    /// Held keys are coloured by what the note is doing in the chord. Four
+    /// colours is the most that stays readable at a glance; beyond that it is
+    /// decoration rather than information.
+    public static func roleColor(_ role: ChordToneRole?) -> Color {
+        switch role {
+        case .root: return Color(red: 1.00, green: 0.72, blue: 0.35)      // the anchor
+        case .third: return Color(red: 0.47, green: 0.87, blue: 0.66)     // major or minor
+        case .fifth: return accent
+        case .seventh, .tension: return Color(red: 0.79, green: 0.64, blue: 1.00)
+        case nil: return accent
+        }
+    }
+
+    /// Legend entries, one per distinct colour. The seventh and the tensions
+    /// share a colour on purpose -- five is past what stays readable -- so they
+    /// must share a swatch too rather than appearing twice.
+    public static let roleLegend: [(label: String, color: Color)] = [
+        ("root", roleColor(.root)),
+        ("third", roleColor(.third)),
+        ("fifth", roleColor(.fifth)),
+        ("7th \u{0026} tensions", roleColor(.seventh)),
+    ]
+
+    public static func roleName(_ role: ChordToneRole) -> String {
+        switch role {
+        case .root: return "root"
+        case .third: return "third"
+        case .fifth: return "fifth"
+        case .seventh: return "seventh"
+        case .tension: return "tension"
+        }
+    }
     public static let diatonic = Color(red: 0.55, green: 0.85, blue: 0.72)
     public static let chromatic = Color(red: 1.0, green: 0.78, blue: 0.42)
     public static let warn = Color(red: 1.0, green: 0.52, blue: 0.48)

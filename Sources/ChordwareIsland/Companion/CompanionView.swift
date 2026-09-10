@@ -23,7 +23,8 @@ public struct CompanionView: View {
             keyboard
             Divider().overlay(IslandTheme.hairline)
             detail
-                .frame(maxHeight: .infinity, alignment: .top)
+            legend
+            Spacer(minLength: 0)
             footer
         }
         .background(IslandTheme.background)
@@ -75,8 +76,11 @@ public struct CompanionView: View {
     private var keyboard: some View {
         MiniPiano(heldNotes: model.heldNotes,
                   scaleNotes: model.key?.pitchClasses ?? [],
+                  lowNote: model.keyboardLowNote,
+                  octaves: model.keyboardOctaves,
                   showsOctaveLabels: true,
-                  namesHeldNotes: true)
+                  namesHeldNotes: true,
+                  chord: model.chord)
             .frame(height: 132)
             .padding(.horizontal, 20)
             .padding(.vertical, 18)
@@ -182,7 +186,14 @@ public struct CompanionView: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 18)
+        // Reserved height. Without it the columns grow and shrink with their
+        // contents, so every chord change nudges everything below it -- which
+        // reads as the window twitching each time you play.
+        .frame(height: Self.detailHeight, alignment: .top)
     }
+
+    /// Room for the longest column the detail area can show: six chord tones.
+    private static let detailHeight: CGFloat = 190
 
     /// Where a lone note sits in the current key, in words.
     private func degreeDescription(of note: Int) -> String {
@@ -207,6 +218,29 @@ public struct CompanionView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// What the key colours mean. Four colours only earn their place if the
+    /// reader is told what they are.
+    @ViewBuilder
+    private var legend: some View {
+        if model.chord != nil {
+            HStack(spacing: 16) {
+                ForEach(Array(IslandTheme.roleLegend.enumerated()), id: \.offset) { _, entry in
+                    HStack(spacing: 5) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(entry.color)
+                            .frame(width: 16, height: 8)
+                        Text(entry.label)
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(IslandTheme.secondary)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 10)
+        }
+    }
+
     // MARK: - Footer
 
     private var footer: some View {
@@ -220,6 +254,16 @@ public struct CompanionView: View {
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(IslandTheme.secondary)
                     .lineLimit(1)
+
+                if model.sustainDown {
+                    Text("SUSTAIN")
+                        .font(.system(size: 9, weight: .bold, design: .rounded))
+                        .tracking(0.6)
+                        .foregroundStyle(IslandTheme.background)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(IslandTheme.chromatic))
+                }
 
                 Spacer(minLength: 12)
 
