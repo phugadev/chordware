@@ -35,7 +35,12 @@ public final class LiveSession {
     public private(set) var key: Key?
     public private(set) var keyConfidence: Double = 0
     /// When set, overrides the estimate everywhere.
-    public var lockedKey: Key? { didSet { republish() } }
+    /// Naming a key re-runs detection rather than just re-publishing.
+    ///
+    /// Re-publishing hands back the candidates found under the *previous* key,
+    /// so the chord keeps its old spelling and its old Roman numeral and
+    /// locking appears to do nothing at all until the next note is played.
+    public var lockedKey: Key? { didSet { reanalyse() } }
 
     public let midiIn = MIDIInputEngine()
     public let midiOut = MIDIOutputEngine()
@@ -197,6 +202,22 @@ public final class LiveSession {
 
     private func republish() {
         publish(notes: source == .midi ? held.sounding : audioNotes)
+    }
+
+    /// Detect again with the current key context, then publish.
+    private func reanalyse() {
+        switch source {
+        case .midi:
+            analyseHeldNotes()
+        case .audio:
+            let notes = audioNotes
+            if !notes.isEmpty {
+                candidates = ChordDetector.detect(
+                    midiNotes: notes,
+                    options: ChordDetector.Options(key: effectiveKey, maxCandidates: 5))
+            }
+            republish()
+        }
     }
 
     private func publish(notes: [Int]) {

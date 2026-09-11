@@ -141,19 +141,12 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     }
 
 
-    /// Resize on the same clock as the content inside.
-    ///
-    /// `setFrame(animate: true)` picks its own duration from how much the
-    /// window changed size, so the frame and the SwiftUI content it holds run
-    /// on different curves for different lengths of time. Driving it through an
-    /// animation group makes them one movement.
+    /// Resize with no animation.
     private func resize(_ window: NSWindow, to frame: NSRect) {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = IslandTheme.modeTransitionDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            context.allowsImplicitAnimation = true
-            window.animator().setFrame(frame, display: true)
-        }
+        // Immediate. Animating the frame while the contents swap underneath
+        // produced the bounce; the two cannot be synchronised without sharing a
+        // layout, which is not worth what it costs.
+        window.setFrame(frame, display: true)
     }
 
     public func setAlwaysOnTop(_ onTop: Bool) {

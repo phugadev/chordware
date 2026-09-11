@@ -19,7 +19,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         public var togglePassthrough: () -> Void
         public var resetProgression: () -> Void
         public var panic: () -> Void
-        public var resetKeyboardRange: () -> Void
+        public var setKeyboardSize: (KeyboardSize) -> Void
         public var setNaming: (NoteNaming) -> Void
         public var toggleRoleColors: () -> Void
 
@@ -34,7 +34,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
                     togglePassthrough: @escaping () -> Void,
                     resetProgression: @escaping () -> Void,
                     panic: @escaping () -> Void,
-                    resetKeyboardRange: @escaping () -> Void,
+                    setKeyboardSize: @escaping (KeyboardSize) -> Void,
                     setNaming: @escaping (NoteNaming) -> Void,
                     toggleRoleColors: @escaping () -> Void) {
             self.openCompanion = openCompanion
@@ -48,7 +48,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             self.togglePassthrough = togglePassthrough
             self.resetProgression = resetProgression
             self.panic = panic
-            self.resetKeyboardRange = resetKeyboardRange
+            self.setKeyboardSize = setKeyboardSize
             self.setNaming = setNaming
             self.toggleRoleColors = toggleRoleColors
         }
@@ -63,6 +63,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentLockedKey: () -> Key? = { nil }
     /// How many notes are waiting to be exported, for the menu title.
     public var currentPerformanceCount: () -> Int = { 0 }
+    public var currentKeyboardSize: () -> KeyboardSize = { .default }
     public var currentNaming: () -> NoteNaming = { .letters }
     public var currentRoleColors: () -> Bool = { true }
 
@@ -103,7 +104,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(.separator())
         }
 
-        let window = NSMenuItem(title: "Companion Window", action: #selector(fire(_:)),
+        let window = NSMenuItem(title: "Show Window", action: #selector(fire(_:)),
                                 keyEquivalent: "c")
         window.keyEquivalentModifierMask = [.command, .option, .control]
         window.target = self
@@ -208,9 +209,20 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(.separator())
 
         add(menu, "Clear Progression", key: "k") { [weak self] in self?.actions.resetProgression() }
-        add(menu, "Refit Keyboard to Controller", key: "") { [weak self] in
-            self?.actions.resetKeyboardRange()
+        let keyboard = NSMenuItem(title: "Keyboard", action: nil, keyEquivalent: "")
+        let keyboardMenu = NSMenu()
+        let current = currentKeyboardSize()
+        for option in KeyboardSize.allCases {
+            let item = NSMenuItem(title: option.displayName, action: #selector(fire(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.state = option == current ? .on : .off
+            item.representedObject = Box { [weak self] in self?.actions.setKeyboardSize(option) }
+            keyboardMenu.addItem(item)
         }
+        keyboard.submenu = keyboardMenu
+        keyboard.toolTip = "Fixed. The keyboard never resizes itself while you play."
+        menu.addItem(keyboard)
         let panic = NSMenuItem(title: "Panic (All Notes Off)", action: #selector(fire(_:)), keyEquivalent: ".")
         panic.keyEquivalentModifierMask = [.command]
         panic.target = self

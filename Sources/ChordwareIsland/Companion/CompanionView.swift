@@ -37,7 +37,10 @@ public struct CompanionView: View {
         }
         .background(IslandTheme.background)
         .preferredColorScheme(.dark)
-        .animation(IslandTheme.modeTransition, value: model.displayMode)
+        // No animation. A window resize and a layout swap cannot be made to
+        // move as one thing without merging the layouts, and merging them cost
+        // four regressions last time. An instant change is honest.
+        .animation(nil, value: model.displayMode)
     }
 
     /// Everything, with the panel taking whatever space is left and the footer
@@ -124,48 +127,50 @@ public struct CompanionView: View {
     /// Numeral and key on one line, so the compact header stays one row tall.
     private var compactTrailing: some View {
         HStack(spacing: 10) {
-            if let numeral = model.romanNumeral {
-                Text(numeral.symbol(naming: model.naming))
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
-                    .lineLimit(1)
-            }
-            if let key = model.key {
-                keyLabel(key, compact: true)
-            }
+            Text(model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}")
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .foregroundStyle(numeralColor)
+                .lineLimit(1)
+            keyLabel(model.key, compact: true)
         }
     }
 
+    /// Three lines, always, whatever is playing.
+    ///
+    /// Rendering them only when there is something to say makes the column
+    /// shorter when idle and taller when sounding, so the whole right-hand side
+    /// jumps every time a chord is recognised.
     private var expandedTrailing: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            if let numeral = model.romanNumeral {
-                Text(numeral.symbol(naming: model.naming))
-                    .font(.system(size: 38, weight: .semibold, design: .rounded))
-                    .foregroundStyle(numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic)
-                    .lineLimit(1)
-                Text(numeral.explanation ?? numeral.function.name)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(IslandTheme.tertiary)
-                    .lineLimit(1)
-            }
-            if let key = model.key {
-                keyLabel(key, compact: false)
-            }
+            Text(model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}")
+                .font(.system(size: 38, weight: .semibold, design: .rounded))
+                .foregroundStyle(numeralColor)
+                .lineLimit(1)
+            Text(model.romanNumeral.map { $0.explanation ?? $0.function.name } ?? " ")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(IslandTheme.tertiary)
+                .lineLimit(1)
+            keyLabel(model.key, compact: false)
         }
+    }
+
+    private var numeralColor: Color {
+        guard let numeral = model.romanNumeral else { return IslandTheme.tertiary }
+        return numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic
     }
 
     /// The key, with a padlock when it was named rather than detected.
-    private func keyLabel(_ key: Key, compact: Bool) -> some View {
+    private func keyLabel(_ key: Key?, compact: Bool) -> some View {
         HStack(spacing: 4) {
             if model.lockedKey != nil {
                 Image(systemName: "lock.fill")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(IslandTheme.tertiary)
             }
-            Text(compact ? key.shortName(naming: model.naming)
-                         : "key of \(key.name(naming: model.naming))")
+            Text(key.map { compact ? $0.shortName(naming: model.naming)
+                                   : "key of \($0.name(naming: model.naming))" } ?? "no key yet")
                 .font(.system(size: 13, weight: .medium, design: .rounded))
-                .foregroundStyle(IslandTheme.secondary)
+                .foregroundStyle(key == nil ? IslandTheme.tertiary : IslandTheme.secondary)
         }
     }
 
@@ -322,10 +327,13 @@ public struct CompanionView: View {
 
     /// What the key colours mean. Four colours only earn their place if the
     /// reader is told what they are.
-    @ViewBuilder
+    /// What the key colours mean.
+    ///
+    /// Always occupies its height, so appearing and vanishing cannot nudge what
+    /// is under it, and only shown when the colours it explains are in use.
     private var legend: some View {
-        if model.chord != nil {
-            HStack(spacing: 16) {
+        HStack(spacing: 16) {
+            if model.roleColors, model.chord != nil {
                 ForEach(Array(IslandTheme.roleLegend.enumerated()), id: \.offset) { _, entry in
                     HStack(spacing: 5) {
                         RoundedRectangle(cornerRadius: 2)
@@ -336,12 +344,14 @@ public struct CompanionView: View {
                             .foregroundStyle(IslandTheme.secondary)
                     }
                 }
-                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 10)
+            Spacer(minLength: 0)
         }
+        .frame(height: 14)
+        .padding(.horizontal, 24)
+        .padding(.bottom, 10)
     }
+
 
     // MARK: - Footer
 

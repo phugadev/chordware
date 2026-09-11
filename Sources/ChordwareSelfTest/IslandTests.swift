@@ -270,68 +270,40 @@ func runPianoTests(_ t: Harness) {
 func runKeyboardRangeTests(_ t: Harness) {
     t.suite("Keyboard range") {
         func range() -> KeyboardRange {
+            KeyboardRange(defaults: UserDefaults(suiteName: "ChordwareTests-\(UUID().uuidString)")!)
+        }
+
+        t.test("it is a fixed setting, not something inferred") {
+            // Two earlier versions changed the keyboard while you played: one
+            // slid it to follow your hands, the other grew it whenever a note
+            // fell outside. Both were reported as the keyboard shifting.
+            // Nothing but an explicit choice moves it now.
+            let r = range()
+            t.equal(r.size, .fourOctaves, "defaults to 49 keys")
+            t.equal(r.lowNote, 36, "starting at C2")
+            t.equal(r.highNote, 84, "ending at C6")
+            t.check(!r.set(.fourOctaves), "setting the same size is not a change")
+            t.check(r.set(.sevenOctaves), "choosing a different one is")
+            t.equal(r.octaves, 7, "and takes effect")
+        }
+
+        t.test("every size starts on a C and counts its keys honestly") {
+            for size in KeyboardSize.allCases {
+                t.equal(PitchClass(size.lowNote).value, 0, "\(size) starts on a C")
+                t.equal(size.highNote, size.lowNote + size.octaves * 12, "\(size) spans whole octaves")
+                // Counted the way controllers are sold: every key, plus the
+                // closing C. Four octaves is a 49-key.
+                t.equal(size.keyCount, size.octaves * 12 + 1, "\(size) key count")
+            }
+            t.equal(KeyboardSize.fourOctaves.keyCount, 49, "the common controller size")
+            t.equal(KeyboardSize.sevenOctaves.keyCount, 85, "the largest offered")
+        }
+
+        t.test("the choice is remembered") {
             let suite = UserDefaults(suiteName: "ChordwareTests-\(UUID().uuidString)")!
-            let r = KeyboardRange(defaults: suite)
-            r.use(device: "Test Controller")
-            return r
-        }
-
-        t.test("a note outside the view widens it, and nothing moves") {
-            let r = range()
-            t.equal(r.lowNote, 36, "starts at C2")
-            t.equal(r.highNote, 84, "ends at C6")
-
-            t.check(r.observe([24]), "a low C1 widens the range")
-            t.equal(r.lowNote, 24, "downwards")
-            t.equal(r.highNote, 84, "and the top edge is untouched")
-        }
-
-        t.test("the keyboard never slides") {
-            // The bug this replaces: one high note slid the whole instrument up
-            // an octave, so every note already on screen changed position. A
-            // keyboard is a map; middle C has to stay where it was.
-            let r = range()
-            let low = r.lowNote
-
-            t.check(!r.observe([50, 53, 57]), "playing inside the view changes nothing")
-            t.equal(r.lowNote, low, "left edge unmoved")
-
-            r.observe([89])
-            t.equal(r.lowNote, low, "a high note does not move the left edge")
-            t.check(r.highNote >= 89, "but it does become visible")
-
-            r.observe([50, 53, 57])
-            t.equal(r.lowNote, low, "and coming back down moves nothing either")
-        }
-
-        t.test("it never shrinks back") {
-            let r = range()
-            r.observe([24])
-            let widened = r.octaves
-            for _ in 0..<20 { r.observe([60, 64, 67]) }
-            t.equal(r.octaves, widened, "staying in the middle does not narrow it")
-        }
-
-        t.test("widening stops before the keys become slivers") {
-            let r = range()
-            r.observe([0, 127])
-            t.check(r.octaves <= 7, "capped, got \(r.octaves)")
-        }
-
-        t.test("the fitted range is remembered per device") {
-            let suite = UserDefaults(suiteName: "ChordwareTests-\(UUID().uuidString)")!
-            let first = KeyboardRange(defaults: suite)
-            first.use(device: "Controller A")
-            first.observe([24])
-            t.equal(first.lowNote, 24, "learned")
-
-            let second = KeyboardRange(defaults: suite)
-            second.use(device: "Controller A")
-            t.equal(second.lowNote, first.lowNote, "remembered next session")
-            t.equal(second.highNote, first.highNote, "both edges")
-
-            second.use(device: "Controller B")
-            t.equal(second.lowNote, 36, "a different device starts fresh")
+            KeyboardRange(defaults: suite).set(.fiveOctaves)
+            t.equal(KeyboardRange(defaults: suite).size, .fiveOctaves, "restored next launch")
         }
     }
+
 }

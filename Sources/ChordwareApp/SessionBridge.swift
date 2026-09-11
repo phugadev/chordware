@@ -23,10 +23,7 @@ final class SessionBridge {
         session.onUpdate = { [weak self] update in self?.apply(update) }
         session.onError = { [weak self] error in self?.report(error) }
         session.midiIn.onEndpointsChanged = { [weak self] _ in self?.refreshInputLabel() }
-        session.midiIn.onActiveEndpointChanged = { [weak self] endpoint in
-            self?.refreshInputLabel()
-            self?.adoptKeyboard(named: endpoint?.name)
-        }
+        session.midiIn.onActiveEndpointChanged = { [weak self] _ in self?.refreshInputLabel() }
     }
 
     func start() {
@@ -57,28 +54,22 @@ final class SessionBridge {
         }
     }
 
-    /// Learn the keyboard's extent from what gets played on it.
-    private func adoptKeyboard(named device: String?) {
-        guard keyboardRange.use(device: device) else { return }
-        applyRange()
-    }
-
     private func applyRange() {
-        model.keyboardLowNote = keyboardRange.lowNote
-        model.keyboardOctaves = keyboardRange.octaves
+        model.keyboardSize = keyboardRange.size
     }
 
-    func resetKeyboardRange() {
-        keyboardRange.reset()
+    func setKeyboardSize(_ size: KeyboardSize) {
+        guard keyboardRange.set(size) else { return }
         applyRange()
     }
+
+    var keyboardSize: KeyboardSize { keyboardRange.size }
 
     private func apply(_ update: LiveSession.Update) {
         model.chroma = update.chroma
         model.sustainDown = update.sustainDown
         model.velocities = update.velocities
-        // Only ever widens, so this cannot move the keyboard under the player.
-        if !update.notes.isEmpty, keyboardRange.observe(update.notes) { applyRange() }
+
 
         guard !update.candidates.isEmpty else {
             // No chord does not mean no music. One key held is a note and two

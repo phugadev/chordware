@@ -126,7 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.bridge?.session.panic()
                 self?.model.clearChord()
             },
-            resetKeyboardRange: { [weak self] in self?.bridge?.resetKeyboardRange() },
+            setKeyboardSize: { [weak self] size in self?.bridge?.setKeyboardSize(size) },
             setNaming: { [weak self] naming in self?.model.naming = naming },
             toggleRoleColors: { [weak self] in self?.model.roleColors.toggle() }
         ))
@@ -136,6 +136,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.currentDisplayMode = { [weak self] in self?.model.displayMode ?? .companion }
         menuBar.currentLockedKey = { [weak self] in self?.model.lockedKey }
         menuBar.currentPerformanceCount = { [weak self] in self?.bridge?.session.recorder.count ?? 0 }
+        menuBar.currentKeyboardSize = { [weak self] in self?.bridge?.keyboardSize ?? .default }
         menuBar.currentNaming = { [weak self] in self?.model.naming ?? .letters }
         menuBar.currentRoleColors = { [weak self] in self?.model.roleColors ?? true }
         menuBar.currentChordSummary = { [weak self] in
