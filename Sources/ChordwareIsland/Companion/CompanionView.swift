@@ -18,6 +18,19 @@ public struct CompanionView: View {
 
     private var hasSomethingToShow: Bool { model.chord != nil || !model.heldNotes.isEmpty }
 
+    private var headerSymbolColor: Color {
+        guard hasSomethingToShow else { return IslandTheme.tertiary }
+        return model.isSounding ? IslandTheme.primary : IslandTheme.secondary
+    }
+
+    /// Fixed, so nothing below the header can move.
+    ///
+    /// Belt and braces alongside keeping both lines present: a long chord
+    /// symbol, a missing Roman numeral or an absent key would otherwise each
+    /// change the height and nudge the keyboard.
+    private static let headerHeight: CGFloat = 100
+    private static let compactHeaderHeight: CGFloat = 52
+
     public var body: some View {
         Group {
             if model.isCompactLayout { presentation } else { full }
@@ -64,30 +77,27 @@ public struct CompanionView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 16) {
+            // Both lines are always present, at the same sizes, whether or not
+            // anything is playing. Swapping the empty state for a single
+            // smaller line makes the header shorter when idle and taller when
+            // sounding, so every key press shoves the keyboard and everything
+            // under it up and down.
             VStack(alignment: .leading, spacing: 4) {
-                if hasSomethingToShow {
-                    Text(model.displaySymbol)
-                        .font(.system(size: 60, weight: .semibold, design: .rounded))
-                        .foregroundStyle(model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.4)
-                        .contentTransition(.numericText())
-                    Text(model.displayDetail)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.secondary)
-                        .lineLimit(1)
-                } else {
-                    // An em dash set at sixty points is a grey slab, and reads
-                    // as a broken element rather than as "nothing yet".
-                    Text("play something")
-                        .font(.system(size: 27, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
-                        .lineLimit(1)
-                }
+                Text(model.displaySymbol)
+                    .font(.system(size: 60, weight: .semibold, design: .rounded))
+                    .foregroundStyle(headerSymbolColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+                    .contentTransition(.numericText())
+                Text(model.displayDetail)
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundStyle(IslandTheme.secondary)
+                    .lineLimit(1)
             }
             Spacer(minLength: 12)
             expandedTrailing
         }
+        .frame(height: Self.headerHeight, alignment: .top)
         .padding(.horizontal, 24)
         .padding(.top, 20)
         .padding(.bottom, 16)
@@ -96,19 +106,16 @@ public struct CompanionView: View {
     /// One row: chord on the left, numeral and key on the right.
     private var compactHeader: some View {
         HStack(alignment: .center, spacing: 14) {
-            Text(hasSomethingToShow ? model.displaySymbol : "play something")
-                .font(.system(size: hasSomethingToShow ? 40 : 20,
-                              weight: hasSomethingToShow ? .semibold : .medium,
-                              design: .rounded))
-                .foregroundStyle(hasSomethingToShow
-                                 ? (model.isSounding ? IslandTheme.primary : IslandTheme.secondary)
-                                 : IslandTheme.tertiary)
+            Text(model.displaySymbol)
+                .font(.system(size: 40, weight: .semibold, design: .rounded))
+                .foregroundStyle(headerSymbolColor)
                 .lineLimit(1)
                 .minimumScaleFactor(0.4)
                 .contentTransition(.numericText())
             Spacer(minLength: 12)
             compactTrailing
         }
+        .frame(height: Self.compactHeaderHeight)
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 8)
