@@ -307,3 +307,64 @@ func runKeyboardRangeTests(_ t: Harness) {
     }
 
 }
+
+@MainActor
+func runLiveSessionTests(_ t: Harness) {
+    /// Play a phrase and report the chord on screen after every message.
+    func play(_ messages: [MIDIMessage]) -> [String] {
+        let session = LiveSession()
+        var shown: [String] = []
+        session.onUpdate = { update in
+            shown.append(update.candidates.first?.chord.symbol() ?? "-")
+        }
+        for message in messages { session.ingest(message) }
+        return shown
+    }
+    func on(_ n: Int) -> MIDIMessage { .noteOn(note: n, velocity: 96, channel: 0) }
+    func off(_ n: Int) -> MIDIMessage { .noteOff(note: n, channel: 0) }
+
+    t.suite("live session") {
+        t.test("lifting a chord does not name its leftovers") {
+            // Releasing the D of a D minor triad leaves F and A sounding, which
+            // reads as F major. That fragment used to be published, and because
+            // a released chord stays on screen it was the fragment that stayed
+            // -- so the next chord you played looked like it never registered.
+            let shown = play([on(62), on(65), on(69), off(62), off(65), off(69)])
+            t.equal(shown.first(where: { $0 != "-" }), "Dm", "the triad is named")
+            t.check(!shown.contains("F"), "no F major invented on the way up or down")
+            t.check(shown.allSatisfy { $0 == "Dm" || $0 == "-" }, "only Dm, ever: \(shown)")
+        }
+
+        t.test("releasing a chord never renames it") {
+            // The sequence from the bug report, played cleanly. Partial reads
+            // while the fingers are still landing are fine and wanted -- B and
+            // D really is B minor until the F arrives. What must not happen is
+            // the name changing once the hand starts coming off.
+            for (notes, name) in [([62, 65, 69], "Dm"), ([65, 69, 72], "F"),
+                                  ([69, 72, 76], "Am"), ([71, 74, 77], "Bdim")] {
+                let settling = play(notes.map(on) + notes.map(off)).dropFirst(notes.count - 1)
+                t.check(settling.allSatisfy { $0 == name || $0 == "-" },
+                        "\(name) stays \(name) as it is released: \(Array(settling))")
+            }
+        }
+
+        t.test("dropping a note from a seventh re-reads the triad") {
+            // Three notes can stand on their own, so this is a real change of
+            // chord and not debris -- unlike a one- or two-note remnant.
+            let shown = play([on(60), on(64), on(67), on(71), off(71)])
+            t.equal(shown.last, "C", "Cmaj7 without its 7th is C")
+        }
+
+        t.test("adding a note to a triad re-reads the seventh") {
+            let shown = play([on(60), on(64), on(67), on(71)])
+            t.equal(shown.last, "Cmaj7", "growing sets always re-detect")
+        }
+
+        t.test("a new chord sharing notes with the last is still detected") {
+            // F and A are common to Dm and F. Holding them across the change
+            // must not make F look like Dm's debris.
+            let shown = play([on(62), on(65), on(69), off(62), on(72)])
+            t.equal(shown.last, "F", "the common tones do not anchor the old chord")
+        }
+    }
+}

@@ -57,6 +57,9 @@ public final class LiveSession {
     private let tracker = AudioChordTracker()
     private var extractorSampleRate: Double = 0
     private var lastChroma: [Double]?
+    /// The notes that produced the chord on screen, so a shrinking set can be
+    /// told apart from a new one.
+    private var chordAnchor: Set<Int> = []
     private var audioNotes: [Int] = []
     private let started = Date()
 
@@ -88,6 +91,12 @@ public final class LiveSession {
 
     // MARK: - MIDI
 
+    /// Feed in a MIDI message as though it had arrived from hardware.
+    ///
+    /// Hardware calls this through `midiIn`; the self-test calls it directly,
+    /// which is the only way to play a phrase without a keyboard attached.
+    public func ingest(_ message: MIDIMessage) { handle(message) }
+
     private func handle(_ message: MIDIMessage) {
         // Passthrough first, so the DAW's timing does not wait on analysis.
         midiOut.forward(message)
@@ -113,13 +122,31 @@ public final class LiveSession {
 
     private func analyseHeldNotes() {
         let notes = held.sounding
+        // Taking a chord off the keys uncovers fragments of it, and analysing
+        // those fragments names chords nobody played: lift the D from a D minor
+        // triad and the F and A left behind read as F major. The fragment that
+        // happens to come off last is then what stays on screen, so the display
+        // ends up showing the *previous* chord's debris -- which looks, from the
+        // keys, exactly like a chord that failed to register.
+        //
+        // A shrinking set that is still part of the chord in hand is a release,
+        // not a new voicing. Keep the chord and only update which keys are lit.
+        // Three notes or more can stand on their own, so dropping the 7th from a
+        // Cmaj7 still re-reads as C.
+        if !notes.isEmpty, notes.count < 3,
+           !chordAnchor.isEmpty, chordAnchor.isSuperset(of: notes) {
+            publish(notes: notes)
+            return
+        }
         guard notes.count >= 2 else {
             candidates = []
+            chordAnchor = []
             publish(notes: notes)
             return
         }
         let options = ChordDetector.Options(key: effectiveKey, maxCandidates: 5)
         candidates = ChordDetector.detect(midiNotes: notes, options: options)
+        chordAnchor = Set(notes)
         if let chord = candidates.first?.chord {
             keyEstimator.observe(chord: chord, at: Date().timeIntervalSince(started))
             updateKey()
@@ -132,6 +159,7 @@ public final class LiveSession {
     private func switchSource() {
         held.allNotesOff()
         candidates = []
+        chordAnchor = []
         audioNotes = []
         lastChroma = nil
         tracker.reset()
@@ -246,6 +274,7 @@ public final class LiveSession {
         held.setSustain(false)
         held.allNotesOff()
         candidates = []
+        chordAnchor = []
         tracker.reset()
         midiOut.allNotesOff()
         synth.allNotesOff()
