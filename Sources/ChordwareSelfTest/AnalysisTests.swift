@@ -340,6 +340,26 @@ func runLiveKeyTests(_ t: Harness) {
             t.equal(key(["Am", "Dm", "E7", "Am"]), "A minor", "with a raised leading tone")
         }
 
+        t.test("one chord is not a key") {
+            // This is what "it changes key every time I press something" was.
+            // A single triad cleared the old weight threshold on its own, so
+            // the first chord played named a key at 99% confidence and every
+            // chord after it renamed it. C major on its own is equally at home
+            // in C, F, G, A minor and E minor.
+            t.equal(key(["C"]), "nil", "one chord names no key")
+            t.equal(key(["C", "C", "C"]), "nil", "nor does the same chord repeated")
+            t.equal(key(["C", "F"]), "nil", "two roots is still not a passage")
+            t.equal(key(["C", "F", "G"]), "C major", "three is enough to be worth saying")
+        }
+
+        t.test("an established key is not abandoned for one stray chord") {
+            // Playing a borrowed or unrelated chord mid-phrase should not
+            // rename the key under you; the estimate has to be beaten, not
+            // merely matched.
+            t.equal(key(["C", "F", "G", "Ab"]), "C major", "a flat-side chord does not take over")
+            t.equal(key(["C", "F", "G", "C", "Ab", "Dm"]), "C major", "nor two of them")
+        }
+
         t.test("borrowed chords do not move the key") {
             // bVI and bVII are flat-side enough that the profiles alone call
             // this C minor; the natural third on the tonic outweighs them.
@@ -347,3 +367,4 @@ func runLiveKeyTests(_ t: Harness) {
         }
     }
 }
+

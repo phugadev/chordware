@@ -33,6 +33,20 @@ public final class KeyEstimator {
     public var halfLife: Double
     /// Below this, `estimate` reports nil rather than guessing from noise.
     public var minimumObservations: Double
+    /// How many different chord roots must have been heard recently before a
+    /// key is named at all.
+    ///
+    /// A key is a property of a passage, not of a chord. One triad used to
+    /// clear `minimumObservations` on its own -- three notes plus a root bonus
+    /// is 4.5 -- so the first chord you played named a key at 99% confidence,
+    /// and every chord after it renamed it. C major alone is equally at home in
+    /// C, F, G, A minor and E minor; there is nothing to be confident about.
+    public var minimumDistinctRoots: Int
+    /// How far a challenger must beat the standing key to replace it.
+    ///
+    /// Neighbouring keys score within about a tenth of each other, so without
+    /// this the estimate flickers between relatives on every chord.
+    public var switchMargin: Double
 
     private var weights = [Double](repeating: 0, count: 12)
     /// Evidence that a chord rooted on each pitch class had a major / minor
@@ -40,18 +54,29 @@ public final class KeyEstimator {
     /// single clue about mode that a progression offers.
     private var majorThird = [Double](repeating: 0, count: 12)
     private var minorThird = [Double](repeating: 0, count: 12)
+    /// Weight of each pitch class seen as a chord *root*, decayed like the
+    /// rest. Counting distinct roots is how "enough has been played to call
+    /// this a key" is decided.
+    private var rootObservations = [Double](repeating: 0, count: 12)
+    /// The key currently being reported, so a challenger has to earn the swap.
+    private var established: Key?
     private var lastUpdate: Double?
     private var totalWeight: Double = 0
 
-    public init(halfLife: Double = 12.0, minimumObservations: Double = 6.0) {
+    public init(halfLife: Double = 12.0, minimumObservations: Double = 6.0,
+                minimumDistinctRoots: Int = 3, switchMargin: Double = 0.04) {
         self.halfLife = halfLife
         self.minimumObservations = minimumObservations
+        self.minimumDistinctRoots = minimumDistinctRoots
+        self.switchMargin = switchMargin
     }
 
     public func reset() {
         weights = [Double](repeating: 0, count: 12)
         majorThird = [Double](repeating: 0, count: 12)
         minorThird = [Double](repeating: 0, count: 12)
+        rootObservations = [Double](repeating: 0, count: 12)
+        established = nil
         lastUpdate = nil
         totalWeight = 0
     }
@@ -65,6 +90,7 @@ public final class KeyEstimator {
             weights[i] *= factor
             majorThird[i] *= factor
             minorThird[i] *= factor
+            rootObservations[i] *= factor
         }
         totalWeight *= factor
         lastUpdate = time
@@ -96,6 +122,7 @@ public final class KeyEstimator {
         }
 
         let root = chord.root.pitchClass.value
+        rootObservations[root] += weight
         if chord.pitchClasses.contains(PitchClass(root + 4)) { majorThird[root] += weight }
         if chord.pitchClasses.contains(PitchClass(root + 3)) { minorThird[root] += weight }
     }
@@ -108,10 +135,32 @@ public final class KeyEstimator {
         totalWeight += weight
     }
 
+    /// Roots still carrying real weight. Decay is doing the work here: a root
+    /// played a minute ago has faded out and no longer counts towards "enough
+    /// has been played", which is why a long rest starts the question over.
+    private var distinctRoots: Int {
+        rootObservations.count { $0 >= 0.5 }
+    }
+
     public var estimate: KeyEstimate? {
         guard totalWeight >= minimumObservations else { return nil }
+        // The variety requirement is about *chords*: one chord is weak evidence
+        // for a key. Raw pitch classes carry no roots and are a different kind
+        // of evidence -- a chroma frame or an explicit set of notes -- so they
+        // are judged on weight alone, as before.
+        let sawChords = rootObservations.contains { $0 > 0 }
+        guard !sawChords || distinctRoots >= minimumDistinctRoots else { return nil }
         let ranked = adjustForMode(Self.rank(weights: weights))
         guard let best = ranked.first else { return nil }
+
+        // Hold the standing key unless the challenger clearly beats it.
+        if let standing = established,
+           let incumbent = ranked.first(where: { $0.0 == standing }),
+           best.1 - incumbent.1 < switchMargin {
+            return KeyEstimate(key: standing, confidence: Self.confidence(from: ranked),
+                               runnerUp: best.0 == standing ? ranked.dropFirst().first?.0 : best.0)
+        }
+        established = best.0
         return KeyEstimate(key: best.0, confidence: Self.confidence(from: ranked),
                            runnerUp: ranked.dropFirst().first?.0)
     }
