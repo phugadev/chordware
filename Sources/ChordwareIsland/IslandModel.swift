@@ -201,11 +201,15 @@ public final class IslandModel {
     }
 
     /// Push a new detection into the island, moving it out of idle.
-    public func present(candidates: [ChordCandidate], heldNotes: [Int], atMs time: Int) {
+    public func present(candidates: [ChordCandidate], heldNotes: [Int], atMs time: Int,
+                        settled: Bool = true) {
         self.candidates = candidates
         self.heldNotes = heldNotes
         isSounding = !heldNotes.isEmpty
-        if let chord = candidates.first?.chord {
+        // Only a settled chord goes into the history. A hand landing on G major
+        // passes through B minor on its way, and a progression strip full of
+        // chords nobody played is worse than no strip at all.
+        if settled, let chord = candidates.first?.chord {
             progression.append(chord, atMs: time, notes: heldNotes,
                                confidence: candidates.first?.confidence ?? 1)
         }

@@ -269,9 +269,19 @@ func runPianoTests(_ t: Harness) {
 @MainActor
 func runKeyboardRangeTests(_ t: Harness) {
     t.suite("Keyboard range") {
-        func range() -> KeyboardRange {
-            KeyboardRange(defaults: UserDefaults(suiteName: "ChordwareTests-\(UUID().uuidString)")!)
+        // One scratch domain, emptied before each use and removed at the end.
+        // A UUID per test wrote a new plist into the user's real preferences on
+        // every run and never took one away: a hundred and forty files had
+        // built up before anyone looked. `removePersistentDomain` empties a
+        // domain but leaves its file behind, so the only way not to litter is
+        // not to create the files in the first place.
+        let scratchName = "ChordwareTests"
+        func scratchDefaults() -> UserDefaults {
+            UserDefaults.standard.removePersistentDomain(forName: scratchName)
+            return UserDefaults(suiteName: scratchName)!
         }
+        defer { UserDefaults.standard.removePersistentDomain(forName: scratchName) }
+        func range() -> KeyboardRange { KeyboardRange(defaults: scratchDefaults()) }
 
         t.test("it is a fixed setting, not something inferred") {
             // Two earlier versions changed the keyboard while you played: one
@@ -300,7 +310,7 @@ func runKeyboardRangeTests(_ t: Harness) {
         }
 
         t.test("the choice is remembered") {
-            let suite = UserDefaults(suiteName: "ChordwareTests-\(UUID().uuidString)")!
+            let suite = scratchDefaults()
             KeyboardRange(defaults: suite).set(.fiveOctaves)
             t.equal(KeyboardRange(defaults: suite).size, .fiveOctaves, "restored next launch")
         }
@@ -368,3 +378,4 @@ func runLiveSessionTests(_ t: Harness) {
         }
     }
 }
+

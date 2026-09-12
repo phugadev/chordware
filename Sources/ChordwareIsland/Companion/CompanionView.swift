@@ -104,6 +104,7 @@ public struct CompanionView: View {
         .padding(.horizontal, 24)
         .padding(.top, 20)
         .padding(.bottom, 16)
+        .windowDragHandle()
     }
 
     /// One row: chord on the left, numeral and key on the right.
@@ -122,6 +123,7 @@ public struct CompanionView: View {
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .padding(.bottom, 8)
+        .windowDragHandle()
     }
 
     /// Numeral and key on one line, so the compact header stays one row tall.

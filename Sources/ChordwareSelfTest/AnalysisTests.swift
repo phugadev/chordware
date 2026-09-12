@@ -303,3 +303,47 @@ func runNamingTests(_ t: Harness) {
         }
     }
 }
+
+/// Key estimation as the app actually runs it: chords arriving a couple of
+/// seconds apart into a decaying histogram, not a finished passage.
+func runLiveKeyTests(_ t: Harness) {
+    /// Play a progression into a fresh estimator at a human tempo.
+    func key(_ symbols: [String], secondsApart: Double = 1.9) -> String {
+        let estimator = KeyEstimator(halfLife: 14, minimumObservations: 4)
+        var time = 0.0
+        for symbol in symbols {
+            guard let chord = ChordParser.parse(symbol) else { continue }
+            estimator.observe(chord: chord, at: time)
+            time += secondsApart
+        }
+        return estimator.estimate?.key.name ?? "nil"
+    }
+
+    t.suite("live key estimation") {
+        t.test("a ii-V-I is its own key, not its dominant") {
+            // Profile correlation alone calls this G major: D is the most
+            // common pitch class in it, and Krumhansl reads a prominent
+            // second-place note as the dominant. The D chord being *minor* is
+            // what rules G major out, since G major's second degree is D major.
+            t.equal(key(["Dm", "G", "C"]), "C major", "Dm G C")
+            t.equal(key(["Dm7", "G7", "Cmaj7"]), "C major", "Dm7 G7 Cmaj7")
+            t.equal(key(["Fm7", "Bb7", "Ebmaj7"]), "Eb major", "transposed")
+        }
+
+        t.test("the key does not simply follow the last chord played") {
+            t.equal(key(["C", "G", "Am", "F"]), "C major", "ending on IV")
+            t.equal(key(["Am", "F", "C", "G"]), "C major", "ending on V")
+            t.equal(key(["G", "D", "Em", "C"]), "G major", "the same shape in G")
+        }
+
+        t.test("a minor key is not mistaken for its relative major") {
+            t.equal(key(["Am", "Dm", "E7", "Am"]), "A minor", "with a raised leading tone")
+        }
+
+        t.test("borrowed chords do not move the key") {
+            // bVI and bVII are flat-side enough that the profiles alone call
+            // this C minor; the natural third on the tonic outweighs them.
+            t.equal(key(["Cmaj7", "Ab", "Bb7", "Cmaj7"]), "C major", "bVI and bVII")
+        }
+    }
+}

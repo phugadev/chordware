@@ -87,7 +87,8 @@ final class SessionBridge {
         model.keyConfidence = update.keyConfidence
         model.present(candidates: update.candidates,
                       heldNotes: update.notes,
-                      atMs: update.timeMs)
+                      atMs: update.timeMs,
+                      settled: update.isSettled)
 
         announce(update)
     }

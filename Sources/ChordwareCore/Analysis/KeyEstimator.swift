@@ -116,23 +116,63 @@ public final class KeyEstimator {
                            runnerUp: ranked.dropFirst().first?.0)
     }
 
-    /// Re-rank using the quality of chords built on each candidate tonic.
+    private enum ExpectedThird { case major, minor, either }
+
+    /// The third built on each scale degree, in semitones above the tonic.
     ///
-    /// `Cmaj7 Ab Bb7 Cmaj7` is C major with a borrowed bVI and bVII, but two of
-    /// its four chords are flat-side, so pitch-class profiles alone call it C
-    /// minor. The Cmaj7 on the tonic has a natural third, and that outweighs the
-    /// borrowed material - which is exactly how a listener hears it.
+    /// A root that appears in neither table is borrowed and carries no
+    /// expectation at all: punishing it would read every modal-interchange
+    /// chord as a modulation.
+    private static let majorDegrees: [Int: ExpectedThird] = [
+        0: .major, 2: .minor, 4: .minor, 5: .major, 7: .major, 9: .minor, 11: .minor,
+    ]
+    /// Minor keys borrow their dominant from the harmonic form more often than
+    /// not, so degree 7 accepts either quality.
+    private static let minorDegrees: [Int: ExpectedThird] = [
+        0: .minor, 2: .minor, 3: .major, 5: .minor,
+        7: .either, 8: .major, 10: .major, 11: .minor,
+    ]
+
+    /// Re-rank by whether the chords played are the chords this key is made of.
+    ///
+    /// Pitch-class profiles count notes, so they cannot tell `Dm G C` from the
+    /// key of G: D is the most common note in it either way, and Krumhansl
+    /// reads a prominent second-most-common note as the dominant. What settles
+    /// it is that the D chord is *minor*, and G major's second degree is a D
+    /// major chord. Comparing the quality of the chord on every degree - not
+    /// only the tonic - is the evidence a progression actually offers.
+    ///
+    /// It also keeps the case this replaces: `Cmaj7 Ab Bb7 Cmaj7` is C major
+    /// with a borrowed bVI and bVII, and the natural third on the tonic still
+    /// outweighs the flat-side material, because the tonic counts double.
     private func adjustForMode(_ ranked: [(Key, Double)]) -> [(Key, Double)] {
-        guard totalWeight > 0 else { return ranked }
+        let evidence = zip(majorThird, minorThird).reduce(0.0) { $0 + $1.0 + $1.1 }
+        guard totalWeight > 0, evidence > 0 else { return ranked }
         return ranked.map { key, score in
             let tonic = key.tonic.pitchClass.value
-            let major = majorThird[tonic], minor = minorThird[tonic]
-            guard major + minor > 0 else { return (key, score) }
-            let bias = (major - minor) / (major + minor)   // +1 all major, -1 all minor
-            let agreement = key.mode == .major ? bias : -bias
-            return (key, score + agreement * 0.10)
+            let degrees = key.mode == .major ? Self.majorDegrees : Self.minorDegrees
+            var agreement = 0.0
+            for pc in 0..<12 {
+                let major = majorThird[pc], minor = minorThird[pc]
+                guard major + minor > 0 else { continue }
+                guard let expected = degrees[(pc - tonic + 12) % 12] else { continue }
+                // The quality of the tonic chord is the strongest single clue a
+                // progression gives, so it counts for two.
+                let emphasis = pc == tonic ? 2.0 : 1.0
+                switch expected {
+                case .major: agreement += emphasis * (major - minor)
+                case .minor: agreement += emphasis * (minor - major)
+                case .either: agreement += emphasis * (major + minor) * 0.5
+                }
+            }
+            return (key, score + (agreement / evidence) * Self.qualityWeight)
         }.sorted { $0.1 > $1.1 }
     }
+
+    /// How far chord quality can move a key against the profile correlation.
+    /// Correlations for neighbouring keys sit within about 0.1 of each other,
+    /// so this is the same order of magnitude as the thing it is arguing with.
+    private static let qualityWeight = 0.30
 
     /// All 24 keys scored against a pitch-class weight vector, best first.
     public static func rank(weights: [Double]) -> [(Key, Double)] {
@@ -168,11 +208,14 @@ public final class KeyEstimator {
         guard !chords.isEmpty else { return nil }
         let estimator = KeyEstimator(halfLife: .infinity, minimumObservations: 0)
         for chord in chords { estimator.observe(chord: chord, at: 0) }
-        // Passages tend to *begin* on the tonic, and to end on it only when they
-        // are not ending on a dominant. Weighting the last chord unconditionally
-        // reads `Cmaj7 Am7 Dm7 G7`, an ordinary turnaround in C, as G major.
+        // Passages tend to *begin* on the tonic, and to end on it only when the
+        // last chord is one a passage can rest on. Weighting it unconditionally
+        // reads `Cmaj7 Am7 Dm7 G7`, an ordinary turnaround in C, as G major --
+        // and a phrase ending on vii-diminished as the key a step below, since
+        // nothing else is pulling against it.
+        let unrestful: Set<ChordFamily> = [.dominant, .diminished, .augmented, .suspended]
         if let first = chords.first { estimator.emphasise(first.root.pitchClass, weight: 1.0, at: 0) }
-        if let last = chords.last, last.quality.family != .dominant {
+        if let last = chords.last, !unrestful.contains(last.quality.family) {
             estimator.emphasise(last.root.pitchClass, weight: 1.5, at: 0)
         }
         return estimator.estimate

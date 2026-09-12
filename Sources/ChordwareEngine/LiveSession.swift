@@ -24,6 +24,10 @@ public final class LiveSession {
         public let velocities: [Int: Int]
         public let sustainDown: Bool
         public let timeMs: Int
+        /// True once the notes have stopped moving and this really is the chord
+        /// that was played, rather than the two notes that happened to land
+        /// first. Only settled chords belong in the progression or the key.
+        public let isSettled: Bool
     }
 
     public var source: InputSource = .midi {
@@ -60,6 +64,9 @@ public final class LiveSession {
     /// The notes that produced the chord on screen, so a shrinking set can be
     /// told apart from a new one.
     private var chordAnchor: Set<Int> = []
+    /// Bumped on every change, so a pending settle knows it is stale.
+    private var settleGeneration = 0
+    private var hasPendingSettle = false
     private var audioNotes: [Int] = []
     private let started = Date()
 
@@ -139,19 +146,56 @@ public final class LiveSession {
             return
         }
         guard notes.count >= 2 else {
+            // A chord let go before it had time to settle is still a chord that
+            // was played, so record it on the way out rather than losing it.
+            if hasPendingSettle { settle() }
             candidates = []
             chordAnchor = []
+            cancelSettle()
             publish(notes: notes)
             return
         }
         let options = ChordDetector.Options(key: effectiveKey, maxCandidates: 5)
         candidates = ChordDetector.detect(midiNotes: notes, options: options)
         chordAnchor = Set(notes)
-        if let chord = candidates.first?.chord {
-            keyEstimator.observe(chord: chord, at: Date().timeIntervalSince(started))
-            updateKey()
-        }
         publish(notes: notes)
+        scheduleSettle()
+    }
+
+    /// Show every reading immediately, but only *believe* the settled one.
+    ///
+    /// Fingers do not land together. Playing D minor, the F and the A arrive
+    /// first and read as F major; playing G, the B and the D read as B minor.
+    /// Showing those is honest -- the chord really is forming -- but recording
+    /// them as chords that were played, and letting them vote on the key, is
+    /// not. It fills the progression strip with chords nobody played and drags
+    /// the key estimate around behind them.
+    private func scheduleSettle() {
+        settleGeneration &+= 1
+        hasPendingSettle = true
+        let generation = settleGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleDelay) { [weak self] in
+            guard let self, self.settleGeneration == generation else { return }
+            self.settle()
+        }
+    }
+
+    /// Long enough for a hand to finish arriving, short enough to be invisible.
+    private static let settleDelay: TimeInterval = 0.14
+
+    private func settle() {
+        hasPendingSettle = false
+        guard let chord = candidates.first?.chord else { return }
+        keyEstimator.observe(chord: chord, at: Date().timeIntervalSince(started))
+        updateKey()
+        publish(notes: source == .midi ? held.sounding : audioNotes, settled: true)
+    }
+
+    /// Stop a pending settle, for when the chord is being torn down rather than
+    /// changed.
+    private func cancelSettle() {
+        settleGeneration &+= 1
+        hasPendingSettle = false
     }
 
     // MARK: - Audio
@@ -160,6 +204,7 @@ public final class LiveSession {
         held.allNotesOff()
         candidates = []
         chordAnchor = []
+        cancelSettle()
         audioNotes = []
         lastChroma = nil
         tracker.reset()
@@ -248,7 +293,7 @@ public final class LiveSession {
         }
     }
 
-    private func publish(notes: [Int]) {
+    private func publish(notes: [Int], settled: Bool = false) {
         onUpdate?(Update(
             candidates: candidates,
             notes: notes,
@@ -257,7 +302,8 @@ public final class LiveSession {
             chroma: source == .audio ? lastChroma : nil,
             velocities: held.velocities,
             sustainDown: held.sustainDown,
-            timeMs: nowMs
+            timeMs: nowMs,
+            isSettled: settled
         ))
     }
 
@@ -275,6 +321,7 @@ public final class LiveSession {
         held.allNotesOff()
         candidates = []
         chordAnchor = []
+        cancelSettle()
         tracker.reset()
         midiOut.allNotesOff()
         synth.allNotesOff()
