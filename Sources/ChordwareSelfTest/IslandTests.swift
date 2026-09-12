@@ -358,6 +358,18 @@ func runLiveSessionTests(_ t: Harness) {
             }
         }
 
+        t.test("two notes are an interval, never a chord") {
+            // Playing D, F, A one at a time: naming D+F as "Dm" made the lone F
+            // left behind count as that chord's remnant, so a single held F
+            // read as D minor and a single held A read as F major -- chords
+            // with none of their notes down.
+            let run = play([on(62), on(65), off(62), on(69), off(65), off(69)])
+            t.check(run.allSatisfy { $0 == "-" }, "a run of single notes names no chord: \(run)")
+
+            let dyad = play([on(62), on(65)])
+            t.equal(dyad.last, "-", "two notes alone are not a chord")
+        }
+
         t.test("dropping a note from a seventh re-reads the triad") {
             // Three notes can stand on their own, so this is a real change of
             // chord and not debris -- unlike a one- or two-note remnant.

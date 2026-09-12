@@ -207,6 +207,28 @@ func runScaleTests(_ t: Harness) {
             t.check(majFits.first?.scale.id != "chromatic", "chromatic is not the top suggestion")
         }
 
+        t.test("the scales offered are ones a player would use") {
+            // Ranking purely by how tightly a scale covers the chord made every
+            // five-note scale beat every seven-note mode, so a D minor triad
+            // was answered with Hirajoshi, Kumoi and Balinese Pelog above
+            // Dorian and Aeolian. Correct set theory, useless advice.
+            let dm = ChordParser.parse("Dm")!
+            let top = ChordScaleMap.scales(for: dm, limit: 6).map(\.scale.id)
+            for exotic in ["hirajoshi", "kumoi", "pelog", "in-sen", "iwato", "scriabin"] {
+                t.check(!top.contains(exotic), "\(exotic) is not a top answer for D minor")
+            }
+            t.check(top.contains("minor-pentatonic"), "minor pentatonic is")
+            t.check(top.contains("dorian") || top.contains("aeolian"), "and so is a minor mode")
+
+            // The textbook answers stay on top where there is one.
+            let g7 = ChordParser.parse("G7")!
+            t.equal(ChordScaleMap.scales(for: g7).first?.scale.id, "mixolydian",
+                    "Mixolydian leads for a dominant seventh")
+            let alt = ChordScaleMap.scales(for: ChordParser.parse("C7#9")!, limit: 3).map(\.scale.id)
+            t.check(alt.contains("altered") || alt.contains("diminished-hw"),
+                    "an altered dominant leads with the scales for it")
+        }
+
         t.test("search finds scales by alias") {
             t.check(ScaleLibrary.search("super locrian").contains { $0.id == "altered" },
                     "Super Locrian is an alias for Altered")

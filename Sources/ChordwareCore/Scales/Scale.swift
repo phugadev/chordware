@@ -42,6 +42,38 @@ public struct Scale: Hashable, Sendable, Identifiable {
 
     public var noteCount: Int { intervals.count }
 
+    /// The scales a player actually reaches for, by id.
+    ///
+    /// There is no set-theoretic definition of "the scale someone wants to be
+    /// shown", so this is a curated judgement rather than a derived one. It has
+    /// to exist: ranking purely by how tightly a scale covers the chord makes
+    /// every five-note scale beat every seven-note mode, so a plain D minor
+    /// triad surfaced Hirajoshi, Kumoi and Balinese Pelog above Dorian and
+    /// Aeolian -- correct set theory, useless advice.
+    private static let everyday: Set<String> = [
+        "ionian", "dorian", "phrygian", "lydian", "mixolydian", "aeolian", "locrian",
+        "melodic-minor", "lydian-dominant", "altered", "mixolydian-b6",
+        "harmonic-minor", "phrygian-dominant",
+        "major-pentatonic", "minor-pentatonic", "blues", "major-blues",
+        "whole-tone", "diminished-wh", "diminished-hw",
+    ]
+
+    /// How readily a player reaches for this scale, 0...1.
+    ///
+    /// Used to break the tie between scales that fit a chord equally well. The
+    /// church modes and the everyday minor scales lead; the rest is ordered by
+    /// how far from common practice its family sits.
+    public var familiarity: Double {
+        if Self.everyday.contains(id) { return 1.0 }
+        switch category {
+        case .majorModes, .melodicMinorModes, .harmonicMinorModes: return 0.75
+        case .pentatonic, .blues, .bebop, .symmetric: return 0.55
+        case .harmonicMajorModes: return 0.45
+        case .doubleHarmonicModes, .neapolitanMinorModes, .neapolitanMajorModes: return 0.35
+        case .exotic: return 0.30
+        }
+    }
+
     public func pitchClasses(root: PitchClass) -> [PitchClass] {
         intervals.map { PitchClass(root.value + $0) }
     }
@@ -149,9 +181,13 @@ public struct Scale: Hashable, Sendable, Identifiable {
             }
         }
         if let bass = chord.bass, !scaleSet.contains(bass.pitchClass) { score -= 0.10 }
-        // Prefer the tightest scale that still covers the chord, so the
-        // chromatic scale — which fits everything and says nothing — sinks.
-        score -= Double(max(0, scaleSet.count - chord.quality.tones.count)) * 0.04
+        // Enough tightness to sink the chromatic scale, which fits everything
+        // and says nothing, but not enough to rank on its own. At the old
+        // weight every five-note scale beat every seven-note mode outright.
+        score -= Double(max(0, scaleSet.count - chord.quality.tones.count)) * 0.015
+        // What decides between scales that all cover the chord is which one a
+        // player would actually use.
+        score += familiarity * 0.20
         return score
     }
 }

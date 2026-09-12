@@ -145,7 +145,13 @@ public final class LiveSession {
             publish(notes: notes)
             return
         }
-        guard notes.count >= 2 else {
+        // Two notes are an interval, not a chord. Naming them guesses: D and F
+        // could be Dm, B flat, Dm7 or F6, and the guess then sticks, because a
+        // single note left over from it counts as that chord's remnant. Playing
+        // D, F, A one at a time showed "D minor" for a lone F and "F major" for
+        // a lone A -- chords with none of their notes down. The display already
+        // reads a dyad out as an interval; let it.
+        guard notes.count >= 3 else {
             // A chord let go before it had time to settle is still a chord that
             // was played, so record it on the way out rather than losing it.
             if hasPendingSettle { settle() }
