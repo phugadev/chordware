@@ -28,7 +28,7 @@ public struct CompanionView: View {
     /// Belt and braces alongside keeping both lines present: a long chord
     /// symbol, a missing Roman numeral or an absent key would otherwise each
     /// change the height and nudge the keyboard.
-    private static let headerHeight: CGFloat = 100
+    private static let headerHeight: CGFloat = 114
     private static let compactHeaderHeight: CGFloat = 52
 
     public var body: some View {
@@ -78,27 +78,49 @@ public struct CompanionView: View {
         }
     }
 
+    /// A grid, not two columns of whatever height they happen to be.
+    ///
+    /// Rows are aligned across the header: the chord symbol shares a baseline
+    /// with the Roman numeral, and the spoken name shares one with the
+    /// function. The key sits on a third row of its own. Laid out as two
+    /// free-standing columns the left one had two lines and the right had
+    /// three, so the left's second line landed *between* the right's two and
+    /// the lower half read as three staggered baselines.
+    ///
+    /// Every row is always present, at the same sizes, whether or not anything
+    /// is playing. Swapping the empty state for fewer or smaller lines makes
+    /// the header shorter when idle and taller when sounding, so every key
+    /// press shoves the keyboard and everything under it up and down.
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 16) {
-            // Both lines are always present, at the same sizes, whether or not
-            // anything is playing. Swapping the empty state for a single
-            // smaller line makes the header shorter when idle and taller when
-            // sounding, so every key press shoves the keyboard and everything
-            // under it up and down.
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
                 Text(model.displaySymbol)
                     .font(.system(size: 60, weight: .semibold, design: .rounded))
                     .foregroundStyle(headerSymbolColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
                     .contentTransition(.numericText())
+                Spacer(minLength: 12)
+                Text(model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}")
+                    .font(.system(size: 38, weight: .semibold, design: .rounded))
+                    .foregroundStyle(numeralColor)
+                    .lineLimit(1)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
                 Text(model.displayDetail)
                     .font(.system(size: 15, weight: .medium, design: .rounded))
                     .foregroundStyle(IslandTheme.secondary)
                     .lineLimit(1)
+                Spacer(minLength: 12)
+                Text(model.romanNumeral.map { $0.explanation ?? $0.function.name } ?? " ")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(IslandTheme.tertiary)
+                    .lineLimit(1)
             }
-            Spacer(minLength: 12)
-            expandedTrailing
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                keyLabel(model.key, compact: false)
+            }
         }
         .frame(height: Self.headerHeight, alignment: .top)
         .padding(.horizontal, 24)
@@ -137,25 +159,6 @@ public struct CompanionView: View {
         }
     }
 
-    /// Three lines, always, whatever is playing.
-    ///
-    /// Rendering them only when there is something to say makes the column
-    /// shorter when idle and taller when sounding, so the whole right-hand side
-    /// jumps every time a chord is recognised.
-    private var expandedTrailing: some View {
-        VStack(alignment: .trailing, spacing: 4) {
-            Text(model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}")
-                .font(.system(size: 38, weight: .semibold, design: .rounded))
-                .foregroundStyle(numeralColor)
-                .lineLimit(1)
-            Text(model.romanNumeral.map { $0.explanation ?? $0.function.name } ?? " ")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(IslandTheme.tertiary)
-                .lineLimit(1)
-            keyLabel(model.key, compact: false)
-        }
-    }
-
     private var numeralColor: Color {
         guard let numeral = model.romanNumeral else { return IslandTheme.tertiary }
         return numeral.isDiatonic ? IslandTheme.diatonic : IslandTheme.chromatic
@@ -189,8 +192,6 @@ public struct CompanionView: View {
                   key: model.key,
                   usesRoleColors: model.roleColors)
             .frame(height: height)
-            .opacity(model.isSounding ? 1 : 0.55)
-            .animation(.easeOut(duration: 0.35), value: model.isSounding)
     }
 
     private var detail: some View {
@@ -386,6 +387,12 @@ public struct CompanionView: View {
                         .frame(maxWidth: 460, alignment: .trailing)
                 }
             }
+            // Fixed. The strip only renders once something has been played, and
+            // its chips grow a second line once a key is established, so the
+            // footer used to get taller twice -- shoving the panel, the
+            // keyboard and the header up by eight points each time. The row is
+            // now as tall as its tallest contents whether they are there or not.
+            .frame(height: 30)
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
         }
