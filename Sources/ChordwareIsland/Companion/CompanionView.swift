@@ -28,7 +28,7 @@ public struct CompanionView: View {
     /// Belt and braces alongside keeping both lines present: a long chord
     /// symbol, a missing Roman numeral or an absent key would otherwise each
     /// change the height and nudge the keyboard.
-    private static let headerHeight: CGFloat = 114
+    private static let headerHeight: CGFloat = 100
     private static let compactHeaderHeight: CGFloat = 52
 
     public var body: some View {
@@ -112,14 +112,9 @@ public struct CompanionView: View {
                     .foregroundStyle(IslandTheme.secondary)
                     .lineLimit(1)
                 Spacer(minLength: 12)
-                Text(model.romanNumeral.map { $0.explanation ?? $0.function.name } ?? " ")
+                functionAndKey
                     .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(IslandTheme.tertiary)
                     .lineLimit(1)
-            }
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                keyLabel(model.key, compact: false)
             }
         }
         .frame(height: Self.headerHeight, alignment: .top)
@@ -157,6 +152,28 @@ public struct CompanionView: View {
                 .lineLimit(1)
             keyLabel(model.key, compact: true)
         }
+    }
+
+    /// What the Roman numeral means, and the key it means it in, on one line.
+    ///
+    /// These were two rows -- the function, then the key under it -- which gave
+    /// the right column a third row the left column had nothing to match. They
+    /// are one statement anyway: `I` means nothing except *in G major*. The
+    /// explanation takes the function's place whenever there is one to give, so
+    /// the line always says the most useful thing it can and never grows.
+    private var functionAndKey: Text {
+        var line = Text("")
+        if let numeral = model.romanNumeral {
+            line = line + Text((numeral.explanation ?? numeral.function.name) + " \u{00B7} ")
+                .foregroundColor(IslandTheme.tertiary)
+        }
+        if model.lockedKey != nil {
+            line = line + Text(Image(systemName: "lock.fill"))
+                .foregroundColor(IslandTheme.tertiary) + Text(" ")
+        }
+        let name = model.key.map { "in \($0.name(naming: model.naming))" } ?? "no key yet"
+        return line + Text(name)
+            .foregroundColor(model.key == nil ? IslandTheme.tertiary : IslandTheme.secondary)
     }
 
     private var numeralColor: Color {

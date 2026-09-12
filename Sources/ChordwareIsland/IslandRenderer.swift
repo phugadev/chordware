@@ -117,6 +117,7 @@ public enum IslandRenderer {
         let view = CompanionView(model: model)
             .frame(width: size.width, height: size.height, alignment: .top)
             .clipped()
+            .environment(\.chordwareRendersOffscreen, true)
         let renderer = ImageRenderer(content: view)
         renderer.scale = 2
         guard let image = renderer.nsImage,
@@ -184,6 +185,7 @@ public enum IslandRenderer {
                            detailHeightOverride: detailHeightOverride)
         }
         .frame(width: canvas.width, height: canvas.height)
+        .environment(\.chordwareRendersOffscreen, true)
 
         let renderer = ImageRenderer(content: content)
         renderer.scale = 2

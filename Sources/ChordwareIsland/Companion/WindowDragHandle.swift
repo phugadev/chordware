@@ -31,6 +31,36 @@ struct WindowDragHandle: NSViewRepresentable {
     }
 }
 
+/// True while the view is being drawn by `ImageRenderer` rather than shown in a
+/// window.
+///
+/// `ImageRenderer` cannot draw an `NSViewRepresentable`: it replaces the whole
+/// subtree with a yellow "unsupported" block. So adding the drag handle to the
+/// header silently blanked the header in every offscreen render -- which is the
+/// only way to check the layout when there is no display awake to screenshot.
+private struct OffscreenRenderKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+public extension EnvironmentValues {
+    var chordwareRendersOffscreen: Bool {
+        get { self[OffscreenRenderKey.self] }
+        set { self[OffscreenRenderKey.self] = newValue }
+    }
+}
+
+private struct WindowDragHandleModifier: ViewModifier {
+    @Environment(\.chordwareRendersOffscreen) private var offscreen
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            if !offscreen {
+                WindowDragHandle().ignoresSafeArea(edges: .top)
+            }
+        }
+    }
+}
+
 extension View {
     /// Make this region drag the window, the way a title bar would.
     ///
@@ -39,6 +69,6 @@ extension View {
     /// traffic lights -- the most obvious place in the world to grab a window --
     /// is the one part that stays dead.
     func windowDragHandle() -> some View {
-        overlay(WindowDragHandle().ignoresSafeArea(edges: .top))
+        modifier(WindowDragHandleModifier())
     }
 }
