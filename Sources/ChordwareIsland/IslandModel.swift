@@ -155,7 +155,7 @@ public final class IslandModel {
     public var displaySymbol: String {
         if let chord { return chord.symbol(naming: naming, in: key, unicode: true) }
         switch heldNotes.count {
-        case 0: return "\u{2014}"
+        case 0: return "\u{2013}\u{2009}\u{2013}\u{2009}\u{2013}"
         case 1:
             return naming.name(PitchClass(heldNotes[0]), in: key, unicode: true)
         default:
@@ -169,7 +169,7 @@ public final class IslandModel {
     public var displayDetail: String {
         if let chord { return chord.spokenName(naming: naming, in: key) }
         switch heldNotes.count {
-        case 0: return "play something"
+        case 0: return ""
         case 1: return "single note \u{00B7} \(MIDINote.name(heldNotes[0]))"
         case 2:
             return ChordDetector.describeDyad(midiNotes: heldNotes).map { "interval \u{00B7} \($0)" }
@@ -177,6 +177,14 @@ public final class IslandModel {
         default: return "no chord matches these notes"
         }
     }
+    /// Nothing has been played and nothing is held.
+    ///
+    /// Worth its own state rather than falling out of the others: the layout
+    /// reserves room for a chord, its notes and its scales, and filling that
+    /// room with labelled but empty slots -- "NOTES / nothing held", "SCALES
+    /// THAT FIT / -" -- shows the scaffolding rather than the app.
+    public var isEmpty: Bool { chord == nil && heldNotes.isEmpty }
+
     public var confidence: Double { candidates.first?.confidence ?? 0 }
     public var alternatives: [ChordCandidate] { Array(candidates.dropFirst()) }
 

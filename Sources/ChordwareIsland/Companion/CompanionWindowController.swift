@@ -91,7 +91,12 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         )
         window.title = "Chordware"
         window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
+        // Visible, like a Mac app's window has always been. It names what you
+        // are looking at when the window is behind something, it gives the
+        // header an obvious place to grab, and a hidden title over a title bar
+        // that is already transparent was just an empty strip nobody could
+        // tell was draggable.
+        window.titleVisibility = .visible
         window.isMovableByWindowBackground = true
         window.backgroundColor = NSColor.black
         window.contentMinSize = Self.companionMinimum

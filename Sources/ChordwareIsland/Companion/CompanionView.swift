@@ -97,7 +97,9 @@ public struct CompanionView: View {
     /// press shoves the keyboard and everything under it up and down.
     private func header(compact: Bool) -> some View {
         VStack(spacing: 2) {
-            Text(model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}")
+            // The rows still hold their height when there is nothing to put in
+            // them -- the layout must not move -- but they draw nothing.
+            Text(model.isEmpty ? " " : (model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}"))
                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                 .foregroundStyle(numeralColor)
                 .lineLimit(1)
@@ -112,9 +114,11 @@ public struct CompanionView: View {
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(IslandTheme.secondary)
                 .lineLimit(1)
-            functionAndKey
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .lineLimit(1)
+            Group {
+                if model.isEmpty { Text(" ") } else { functionAndKey }
+            }
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
         .frame(height: Self.headerHeight(compact: compact), alignment: .top)
@@ -205,6 +209,29 @@ public struct CompanionView: View {
     }
 
     private func detail(height: CGFloat) -> some View {
+        Group {
+            if model.isEmpty { emptyPanel } else { columns(height: height) }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 18)
+        .frame(height: height, alignment: .top)
+        .clipped()
+    }
+
+    /// One sentence saying what this space is for, rather than two column
+    /// headings standing over nothing.
+    private var emptyPanel: some View {
+        VStack {
+            Spacer(minLength: 0)
+            Text("play a chord to see its notes and the scales that fit")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(IslandTheme.tertiary)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func columns(height: CGFloat) -> some View {
         HStack(alignment: .top, spacing: 28) {
             column("NOTES") {
                 if let chord = model.chord {
@@ -283,10 +310,6 @@ public struct CompanionView: View {
                 }
             }
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 18)
-        .frame(height: height, alignment: .top)
-        .clipped()
     }
 
     /// Where a lone note sits in the current key, in words.
