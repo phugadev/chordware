@@ -113,20 +113,21 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         add(menu, "Keep Window on Top", key: "t", checked: currentAlwaysOnTop()) { [weak self] in
             self?.actions.toggleAlwaysOnTop()
         }
-        // One item, not one per mode. There is a single shortcut and it toggles,
-        // so two checkmarked items said the same thing twice and read as a
-        // duplicate. The title names where you are and where the shortcut goes.
+        // A window size, not a mode. There is one layout now and it answers to
+        // the window's height, so this item only resizes -- which is what the
+        // old "mode" always really was.
         let mode = currentDisplayMode()
         let order = DisplayMode.allCases
         let next = order[((order.firstIndex(of: mode) ?? 0) + 1) % order.count]
         let toggle = NSMenuItem(
-            title: "Toggle Mode (\(mode.displayName) \u{2192} \(next.displayName))",
+            title: next.usesCompactLayout ? "Shrink to the Keyboard" : "Show Everything",
             action: #selector(fire(_:)), keyEquivalent: "p")
         toggle.keyEquivalentModifierMask = [.command, .option, .control]
         toggle.target = self
         toggle.representedObject = Box { [weak self] in self?.actions.setDisplayMode(next) }
-        toggle.toolTip = "Companion shows everything: notes, alternatives, scales, progression. "
-            + "Presentation shows just the chord and the keyboard, in a window that fits it."
+        toggle.toolTip = "Resizes the window. A tall window shows the notes, the scales "
+            + "and the progression; a short one keeps the chord and the keyboard, and draws "
+            + "the chord larger. Dragging the window does the same thing."
         menu.addItem(toggle)
         add(menu, "Colour Keys by Role", key: "", checked: currentRoleColors()) { [weak self] in
             self?.actions.toggleRoleColors()

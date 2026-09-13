@@ -15,14 +15,17 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     /// Content sizes, not frame sizes. The titlebar adds roughly thirty points
     /// on top, and treating one as the other clipped the keyboard off the
     /// bottom of presentation mode.
-    private static let compactContent = NSSize(width: 810, height: 200)
+    /// The compact size the toggle snaps to. It has to clear what the layout
+    /// actually needs -- header, keyboard and their padding -- or the keyboard
+    /// is clipped off the bottom, which is how this went wrong before.
+    private static let compactContent = NSSize(width: 900, height: 300)
     // Tall enough for the header, the keyboard and the full panel. The
     // header is taller than its type sizes suggest, because baseline
     // alignment between the symbol and the numeral adds the difference in
     // their ascents.
     private static let companionContent = NSSize(width: 900, height: 600)
     private static let companionMinimum = NSSize(width: 700, height: 520)
-    private static let compactMinimum = NSSize(width: 520, height: 170)
+    private static let compactMinimum = NSSize(width: 600, height: 260)
 
     /// The companion frame, kept across launches.
     ///

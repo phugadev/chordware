@@ -23,59 +23,56 @@ public struct CompanionView: View {
         return model.isSounding ? IslandTheme.primary : IslandTheme.secondary
     }
 
-    /// Fixed, so nothing below the header can move.
+    /// Below this much window, the panel is dropped and the chord grows.
     ///
-    /// Belt and braces alongside keeping both lines present: a long chord
-    /// symbol, a missing Roman numeral or an absent key would otherwise each
-    /// change the height and nudge the keyboard.
-    private static let headerHeight: CGFloat = 100
-    private static let compactHeaderHeight: CGFloat = 52
+    /// There used to be two layouts behind a mode switch. A mode is not what
+    /// that was: it was "make the window small", and the window already does
+    /// that. One tree that answers to its own height removes the toggle, the
+    /// second header, the second keyboard call and the whole class of bug where
+    /// two trees drift apart.
+    private static let panelThreshold: CGFloat = 520
+
+    /// Fixed heights, so nothing below the header can move as you play. A long
+    /// chord symbol, a missing Roman numeral or an absent key would otherwise
+    /// each change the height and nudge the keyboard.
+    private static func headerHeight(compact: Bool) -> CGFloat { compact ? 104 : 100 }
+    /// Less room means the chord should be *easier* to read, not harder: at a
+    /// glance from a music stand, or across a room on a stream.
+    private static func symbolSize(compact: Bool) -> CGFloat { compact ? 76 : 60 }
 
     public var body: some View {
-        Group {
-            if model.isCompactLayout { presentation } else { full }
+        GeometryReader { proxy in
+            let compact = proxy.size.height < Self.panelThreshold
+            VStack(spacing: 0) {
+                header(compact: compact)
+                Divider().overlay(IslandTheme.hairline)
+                keyboardView(height: keyboardHeight(in: proxy.size.height, compact: compact))
+                    .padding(.horizontal, compact ? 16 : 20)
+                    .padding(.vertical, compact ? 12 : 18)
+                if !compact {
+                    Divider().overlay(IslandTheme.hairline)
+                    detail
+                    Spacer(minLength: 0)
+                    footer
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
         }
         .background(IslandTheme.background)
         .preferredColorScheme(.dark)
-        // No animation. A window resize and a layout swap cannot be made to
-        // move as one thing without merging the layouts, and merging them cost
-        // four regressions last time. An instant change is honest.
-        .animation(nil, value: model.displayMode)
     }
 
-    /// Everything, with the panel taking whatever space is left and the footer
-    /// sitting on the bottom edge.
-    ///
-    /// This was briefly rebuilt as a single tree shared with presentation mode,
-    /// so switching between them could animate as one movement. Sharing forced
-    /// the panel to a fixed height; the fixed height forced a taller window;
-    /// the taller window pushed the footer off the bottom; and the fixed height
-    /// was then reported upward as the window's minimum. Three regressions for
-    /// a smoother quarter-second. The layouts are separate again.
-    private var full: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().overlay(IslandTheme.hairline)
-            keyboardView(height: 132)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 18)
-            Divider().overlay(IslandTheme.hairline)
-            detail
-            legend
-            Spacer(minLength: 0)
-            footer
-        }
-    }
-
-    /// The least that still communicates what is being played.
-    private var presentation: some View {
-        VStack(spacing: 0) {
-            compactHeader
-            Divider().overlay(IslandTheme.hairline)
-            keyboardView(height: 108)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-        }
+    /// With the panel gone the keyboard takes the room it leaves, within
+    /// bounds: unbounded it becomes a row of slabs, fixed it leaves a band of
+    /// black under it at most window sizes.
+    private func keyboardHeight(in available: CGFloat, compact: Bool) -> CGFloat {
+        guard compact else { return 132 }
+        let used = Self.headerHeight(compact: true) + 20 + 8 + 1 + 24
+        // Capped: a 49-key keyboard across 900 points has keys about 18 wide,
+        // and past roughly ten times that they stop reading as piano keys and
+        // start reading as slabs. A window between the two useful sizes keeps
+        // some black under the keyboard, which is the lesser fault.
+        return min(max(100, available - used), 200)
     }
 
     /// A grid, not two columns of whatever height they happen to be.
@@ -91,11 +88,12 @@ public struct CompanionView: View {
     /// is playing. Swapping the empty state for fewer or smaller lines makes
     /// the header shorter when idle and taller when sounding, so every key
     /// press shoves the keyboard and everything under it up and down.
-    private var header: some View {
+    private func header(compact: Bool) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 16) {
                 Text(model.displaySymbol)
-                    .font(.system(size: 60, weight: .semibold, design: .rounded))
+                    .font(.system(size: Self.symbolSize(compact: compact),
+                                  weight: .semibold, design: .rounded))
                     .foregroundStyle(headerSymbolColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.4)
@@ -117,41 +115,11 @@ public struct CompanionView: View {
                     .lineLimit(1)
             }
         }
-        .frame(height: Self.headerHeight, alignment: .top)
-        .padding(.horizontal, 24)
+        .frame(height: Self.headerHeight(compact: compact), alignment: .top)
+        .padding(.horizontal, compact ? 20 : 24)
         .padding(.top, 20)
-        .padding(.bottom, 16)
+        .padding(.bottom, compact ? 8 : 16)
         .windowDragHandle()
-    }
-
-    /// One row: chord on the left, numeral and key on the right.
-    private var compactHeader: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Text(model.displaySymbol)
-                .font(.system(size: 40, weight: .semibold, design: .rounded))
-                .foregroundStyle(headerSymbolColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.4)
-                .contentTransition(.numericText())
-            Spacer(minLength: 12)
-            compactTrailing
-        }
-        .frame(height: Self.compactHeaderHeight)
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
-        .padding(.bottom, 8)
-        .windowDragHandle()
-    }
-
-    /// Numeral and key on one line, so the compact header stays one row tall.
-    private var compactTrailing: some View {
-        HStack(spacing: 10) {
-            Text(model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}")
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
-                .foregroundStyle(numeralColor)
-                .lineLimit(1)
-            keyLabel(model.key, compact: true)
-        }
     }
 
     /// What the Roman numeral means, and the key it means it in, on one line.
@@ -232,8 +200,10 @@ public struct CompanionView: View {
                                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                                 .foregroundStyle(IslandTheme.tertiary)
                                 .frame(width: 30, alignment: .leading)
-                            Text(sounding ? tone.interval.longName
-                                          : tone.interval.longName + " \u{00B7} not played")
+                            // Whether the tone is actually under a finger is
+                            // already said by the colour; spelling it out in
+                            // words was diagnostics, not teaching.
+                            Text(tone.interval.longName)
                                 .font(.system(size: 11, design: .rounded))
                                 .foregroundStyle(sounding ? IslandTheme.secondary : IslandTheme.tertiary)
                                 .lineLimit(1)
@@ -262,29 +232,6 @@ public struct CompanionView: View {
                     Text("nothing held")
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(IslandTheme.tertiary)
-                }
-            }
-
-            column("ALSO READS AS") {
-                if model.chord == nil {
-                    Text(model.heldNotes.isEmpty ? "\u{2014}" : "not a named chord")
-                        .font(.system(size: 11, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
-                } else if model.alternatives.isEmpty {
-                    Text("unambiguous")
-                        .font(.system(size: 11, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
-                } else {
-                    ForEach(Array(model.alternatives.prefix(4).enumerated()), id: \.offset) { _, alt in
-                        HStack(spacing: 8) {
-                            Text(alt.chord.symbol(naming: model.naming, in: model.key, unicode: true))
-                                .font(.system(size: 12, weight: .medium, design: .rounded))
-                                .foregroundStyle(IslandTheme.secondary)
-                                .frame(width: 86, alignment: .leading)
-                                .lineLimit(1)
-                            ConfidenceBar(value: alt.confidence, width: 44)
-                        }
-                    }
                 }
             }
 
@@ -344,34 +291,6 @@ public struct CompanionView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-
-    /// What the key colours mean. Four colours only earn their place if the
-    /// reader is told what they are.
-    /// What the key colours mean.
-    ///
-    /// Always occupies its height, so appearing and vanishing cannot nudge what
-    /// is under it, and only shown when the colours it explains are in use.
-    private var legend: some View {
-        HStack(spacing: 16) {
-            if model.roleColors, model.chord != nil {
-                ForEach(Array(IslandTheme.roleLegend.enumerated()), id: \.offset) { _, entry in
-                    HStack(spacing: 5) {
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(entry.color)
-                            .frame(width: 16, height: 8)
-                        Text(entry.label)
-                            .font(.system(size: 10, weight: .medium, design: .rounded))
-                            .foregroundStyle(IslandTheme.secondary)
-                    }
-                }
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(height: 14)
-        .padding(.horizontal, 24)
-        .padding(.bottom, 10)
-    }
-
 
     // MARK: - Footer
 

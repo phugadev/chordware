@@ -79,11 +79,14 @@ public enum IslandRenderer {
                                          notes: [60, 67]) {
             written.append(url)
         }
-        for mode in [DisplayMode.presentation] {
-            let name = "companion-\(mode.rawValue).png"
+        // The layout answers to the window's height rather than to a mode, so
+        // what has to be checked is a range of heights: full, just above and
+        // just below the point the panel is dropped, and the smallest useful
+        // window.
+        for height in [600, 540, 500, 380, 280] as [CGFloat] {
+            let name = "companion-h\(Int(height)).png"
             if let url = try renderCompanion(to: directory.appendingPathComponent(name),
-                                             mode: mode,
-                                             size: CGSize(width: 810, height: 200)) {
+                                             size: CGSize(width: 900, height: height)) {
                 written.append(url)
             }
         }
