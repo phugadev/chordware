@@ -119,15 +119,6 @@ public struct CompanionView: View {
         .padding(.horizontal, compact ? 20 : 24)
         .padding(.top, 20)
         .padding(.bottom, compact ? 8 : 16)
-        // Nothing in the header is clickable, so let every point in it fall
-        // through to the window.
-        //
-        // This replaces an NSViewRepresentable drag handle, which was exactly
-        // backwards: SwiftUI's hosting view already passes a mouse-down to the
-        // window where it has nothing interactive -- that is why the panel and
-        // the footer always dragged -- and dropping a real NSView on top of the
-        // header is what stopped the header dragging at all.
-        .allowsHitTesting(false)
     }
 
     /// What the Roman numeral means, and the key it means it in, on one line.
@@ -185,6 +176,11 @@ public struct CompanionView: View {
                   key: model.key,
                   usesRoleColors: model.roleColors)
             .frame(height: height)
+            // Claim the keyboard's own clicks so it does not drag the window.
+            // Grabbing a piano and having the window move is wrong, and the
+            // keys are the one part of this view that will want clicks of its
+            // own later.
+            .contentShape(Rectangle())
     }
 
     private var detail: some View {
