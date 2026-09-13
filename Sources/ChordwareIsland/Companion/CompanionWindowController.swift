@@ -79,7 +79,13 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 900, height: 600),
-            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            // No .fullSizeContentView. With it, the hosting view covers the
+            // title bar and AppKit's own drag region goes with it -- which is
+            // why dragging the header never worked, through four attempts at
+            // fixing it from the SwiftUI side. A real title bar is the one drag
+            // region macOS guarantees. Transparent, untitled, over a black
+            // window, it reads as the same strip of black it always did.
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
         )
