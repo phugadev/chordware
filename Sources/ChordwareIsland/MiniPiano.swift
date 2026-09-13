@@ -66,6 +66,9 @@ public struct MiniPiano: View {
         self.octaves = octaves ?? max(1, (ceilC - floorC) / 12)
     }
 
+    /// The visible face on the front of a white key.
+    private let lipHeight: CGFloat = 3
+
     public var body: some View {
         Canvas { context, size in
             let layout = PianoLayout(lowNote: lowNote, octaves: octaves, size: size,
@@ -88,22 +91,80 @@ public struct MiniPiano: View {
                 return base.opacity(min(1, strength))
             }
 
+            // Keys are drawn as objects with a top, a front and an edge,
+            // rather than as filled rectangles. A piano is the largest thing in
+            // this window and a flat rounded rect reads as a wireframe of one.
+            let radius = min(3.0, layout.whiteKeys.first?.rect.width ?? 3 / 6)
+
+            // The keybed the keys sit in, so they are in something rather than
+            // floating on the background.
+            context.fill(Path(CGRect(x: 0, y: 0, width: size.width, height: size.height)),
+                         with: .color(Color(white: 0.06)))
+
             for key in layout.whiteKeys {
                 let rect = key.rect.insetBy(dx: 0.5, dy: 0)
-                let path = Path(roundedRect: rect, cornerRadius: 2)
-                context.fill(path, with: .color(Color.white.opacity(0.82)))
-                if held.contains(key.note) {
+                let pressed = held.contains(key.note)
+                // A pressed key sinks: it starts lower and ends at the same
+                // place, so the front lip shortens the way a real one does.
+                let top = pressed ? rect.minY + 2 : rect.minY
+                let body = CGRect(x: rect.minX, y: top, width: rect.width,
+                                  height: rect.maxY - top)
+                let path = Path(roundedRect: body, cornerRadius: radius)
+
+                if pressed {
                     context.fill(path, with: .color(heldColor(key.note)))
+                    // Darker where the finger is, so the key looks depressed
+                    // rather than merely coloured in.
+                    context.fill(path, with: .linearGradient(
+                        Gradient(colors: [Color.black.opacity(0.22), .clear]),
+                        startPoint: CGPoint(x: body.midX, y: body.minY),
+                        endPoint: CGPoint(x: body.midX, y: body.minY + body.height * 0.45)))
+                } else {
+                    context.fill(path, with: .linearGradient(
+                        Gradient(colors: [Color(white: 0.93), Color(white: 0.80)]),
+                        startPoint: CGPoint(x: body.midX, y: body.minY),
+                        endPoint: CGPoint(x: body.midX, y: body.maxY)))
+                    // The front lip: the face you actually see on an upright.
+                    let lip = CGRect(x: body.minX, y: body.maxY - lipHeight,
+                                     width: body.width, height: lipHeight)
+                    context.fill(Path(roundedRect: lip, cornerRadius: radius),
+                                 with: .color(Color(white: 0.70)))
                 }
+                // Hairline between keys instead of a gap.
+                context.stroke(path, with: .color(Color.black.opacity(0.35)), lineWidth: 0.5)
             }
 
             for key in layout.blackKeys {
-                let path = Path(roundedRect: key.rect, cornerRadius: 2)
-                context.fill(path, with: .color(Color(white: 0.13)))
-                if held.contains(key.note) {
+                let pressed = held.contains(key.note)
+                let top = pressed ? key.rect.minY + 1.5 : key.rect.minY
+                let body = CGRect(x: key.rect.minX, y: top, width: key.rect.width,
+                                  height: key.rect.maxY - top)
+                let path = Path(roundedRect: body, cornerRadius: radius)
+
+                // Cast onto the white keys either side, which is most of what
+                // makes a black key read as sitting above them.
+                let shadow = CGRect(x: body.minX - 1, y: body.minY,
+                                    width: body.width + 2, height: body.height + 2)
+                context.fill(Path(roundedRect: shadow, cornerRadius: radius),
+                             with: .color(Color.black.opacity(0.30)))
+
+                if pressed {
                     context.fill(path, with: .color(heldColor(key.note)))
+                    context.fill(path, with: .linearGradient(
+                        Gradient(colors: [Color.black.opacity(0.35), .clear]),
+                        startPoint: CGPoint(x: body.midX, y: body.minY),
+                        endPoint: CGPoint(x: body.midX, y: body.midY)))
+                } else {
+                    context.fill(path, with: .linearGradient(
+                        Gradient(colors: [Color(white: 0.26), Color(white: 0.09)]),
+                        startPoint: CGPoint(x: body.midX, y: body.minY),
+                        endPoint: CGPoint(x: body.midX, y: body.maxY)))
+                    // The lit top edge, where the light catches the bevel.
+                    let cap = CGRect(x: body.minX + 1, y: body.maxY - body.height * 0.10,
+                                     width: body.width - 2, height: body.height * 0.07)
+                    context.fill(Path(roundedRect: cap, cornerRadius: 1),
+                                 with: .color(Color.white.opacity(0.16)))
                 }
-                context.stroke(path, with: .color(.black), lineWidth: 1)
             }
 
             let whiteWidth = layout.whiteKeys.first?.rect.width ?? 0
