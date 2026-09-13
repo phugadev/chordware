@@ -30,6 +30,22 @@ public enum IslandTheme {
         }
     }
 
+    /// The same four roles, for a key that is itself dark.
+    ///
+    /// The pastels above are tints meant to sit on white. Put one on a black
+    /// key, between two more black keys, and it reads as washed out rather than
+    /// as pressed: there is nothing lighter around it for it to be a tint of.
+    /// Same hue, more saturation, less brightness.
+    public static func roleColorOnBlack(_ role: ChordToneRole?) -> Color {
+        switch role {
+        case .root: return Color(red: 0.93, green: 0.55, blue: 0.10)
+        case .third: return Color(red: 0.20, green: 0.72, blue: 0.47)
+        case .fifth: return Color(red: 0.13, green: 0.56, blue: 0.90)
+        case .seventh, .tension: return Color(red: 0.58, green: 0.36, blue: 0.95)
+        case nil: return Color(red: 0.13, green: 0.56, blue: 0.90)
+        }
+    }
+
     /// Legend entries, one per distinct colour. The seventh and the tensions
     /// share a colour on purpose -- five is past what stays readable -- so they
     /// must share a swatch too rather than appearing twice.

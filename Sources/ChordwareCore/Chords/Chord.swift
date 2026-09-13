@@ -57,9 +57,16 @@ public struct Chord: Hashable, Sendable, CustomStringConvertible {
 
     public var description: String { symbol() }
 
-    /// The chord symbol written in a chosen naming system. Only the root and
-    /// bass change; the quality suffix is the same in every system.
+    /// The chord symbol. Its root is always a letter, whatever the note-name
+    /// setting says.
+    ///
+    /// A symbol names a *harmony*; note names label *pitches*, and only the
+    /// second of those follows the setting. Fixed do writes D minor as "Rem",
+    /// which is correct notation and reads as an English word at seventy-six
+    /// points. Chord charts in do-re-mi countries use letters for the same
+    /// reason. The quality suffix never changes in any system.
     public func symbol(naming: NoteNaming, in key: Key? = nil, unicode: Bool = false) -> String {
+        let naming = NoteNaming.letters
         let rootText = naming.name(root, in: key, unicode: unicode)
         let figure = naming.figure(quality.symbol)
         guard let bass else { return rootText + figure }
@@ -67,12 +74,10 @@ public struct Chord: Hashable, Sendable, CustomStringConvertible {
         return rootText + suffix + "/" + naming.name(bass, in: key, unicode: unicode)
     }
 
-    /// Spoken description stays in letters whatever the notation.
-    ///
-    /// "1 dominant thirteenth" is not something anybody says; prose wants a
-    /// note name even when the symbol above it is a number.
+    /// Spoken description stays in letters whatever the notation, for the same
+    /// reason the symbol does: it is naming the chord, not a pitch.
     public func spokenName(naming: NoteNaming, in key: Key? = nil) -> String {
-        fullName(naming: naming.isNumeric ? .letters : naming, in: key)
+        fullName(naming: .letters, in: key)
     }
 
     /// Correct spelling for each pitch class in this chord, so a keyboard can

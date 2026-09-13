@@ -251,26 +251,29 @@ func runNamingTests(_ t: Harness) {
         }
 
         t.test("a numeric root never runs into a numeric figure") {
-            // C13 in C rendered as "113" and Bb7 as "b77" before the figure was
-            // raised: the root's digits ran straight into the quality's, which
-            // is why Nashville charts write the figure small and high.
-            let c13 = ChordParser.parse("C13")!
-            t.equal(c13.symbol(naming: .scaleDegrees, in: c), "1\u{00B9}\u{00B3}", "C13 is 1 with a raised 13")
-            let bflat7 = ChordParser.parse("Bb7")!
-            t.equal(bflat7.symbol(naming: .scaleDegrees, in: c), "b7\u{2077}", "Bb7 is b7 with a raised 7")
-            let a7 = ChordParser.parse("A7")!
-            t.equal(a7.symbol(naming: .scaleDegrees, in: c), "6\u{2077}", "A7 is 6 with a raised 7")
-
-            // Every other system is untouched.
-            t.equal(c13.symbol(naming: .letters), "C13", "letters unaffected")
-            t.equal(c13.symbol(naming: .fixedDo), "Do13", "fixed do unaffected")
+            // Nothing offers numeric roots any more, but the raising itself is
+            // what stops "1" and "13" reading as "113", and it is the sort of
+            // thing that quietly rots once nothing exercises it.
+            t.equal(NoteNaming.scaleDegrees.figure("13"), "\u{00B9}\u{00B3}", "13 raised")
+            t.equal(NoteNaming.scaleDegrees.figure("7"), "\u{2077}", "7 raised")
+            t.equal(NoteNaming.letters.figure("13"), "13", "letters leave it alone")
         }
 
-        t.test("prose keeps note names even when the symbol is a number") {
-            let chord = ChordParser.parse("C13")!
-            t.equal(chord.spokenName(naming: .scaleDegrees, in: c), "C dominant thirteenth",
-                    "nobody says 'one dominant thirteenth'")
-            t.equal(chord.spokenName(naming: .fixedDo), "Do dominant thirteenth", "fixed do does speak")
+        t.test("a chord symbol is written in letters whatever the setting") {
+            // A symbol names a harmony; note names label pitches, and only the
+            // second follows the setting. Fixed do writes D minor as "Rem" --
+            // correct notation, and an English word at seventy-six points.
+            let dm = ChordParser.parse("Dm")!
+            t.equal(dm.symbol(naming: .fixedDo), "Dm", "not Rem")
+            t.equal(dm.symbol(naming: .letters), "Dm", "and the same in letters")
+            t.equal(dm.spokenName(naming: .fixedDo), "D minor", "prose too")
+
+            let c13 = ChordParser.parse("C13")!
+            t.equal(c13.symbol(naming: .fixedDo), "C13", "the quality suffix never changes")
+            t.equal(c13.spokenName(naming: .fixedDo), "C dominant thirteenth", "nor does prose")
+
+            // The setting still governs the notes themselves.
+            t.equal(NoteNaming.fixedDo.name(SpelledNote("D")!, in: c), "Re", "notes do follow it")
         }
 
         t.test("a relative system falls back when there is no key") {
@@ -280,15 +283,13 @@ func runNamingTests(_ t: Harness) {
             t.check(!NoteNaming.fixedDo.requiresKey, "fixed do does not")
         }
 
-        t.test("chord symbols follow the system, suffixes do not") {
+        t.test("a chord symbol keeps its letters, root and bass alike") {
             let chord = ChordParser.parse("Bbmaj7")!
             t.equal(chord.symbol(naming: .letters), "Bbmaj7", "letters")
-            t.equal(chord.symbol(naming: .fixedDo), "Sibmaj7", "fixed do keeps the quality suffix")
-            t.equal(chord.symbol(naming: .scaleDegrees, in: f), "4maj\u{2077}",
-                    "Bb is the 4 of F, with the figure raised")
+            t.equal(chord.symbol(naming: .fixedDo), "Bbmaj7", "and letters under fixed do")
 
             let slash = ChordParser.parse("C/G")!
-            t.equal(slash.symbol(naming: .fixedDo), "Do/Sol", "the bass is named too")
+            t.equal(slash.symbol(naming: .fixedDo), "C/G", "the bass is a chord symbol too")
         }
 
         t.test("Nashville numbers replace Roman numerals") {

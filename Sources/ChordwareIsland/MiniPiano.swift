@@ -80,10 +80,11 @@ public struct MiniPiano: View {
             // annotation: in F major every B natural went dark, which looks
             // exactly like a rendering fault sitting next to every C. Scale
             // membership is a dot instead, which is clearly deliberate.
-            func heldColor(_ note: Int) -> Color {
+            func heldColor(_ note: Int, onBlack: Bool = false) -> Color {
+                let role = chord?.role(of: PitchClass(note))
                 let base = usesRoleColors
-                    ? IslandTheme.roleColor(chord?.role(of: PitchClass(note)))
-                    : IslandTheme.accent
+                    ? (onBlack ? IslandTheme.roleColorOnBlack(role) : IslandTheme.roleColor(role))
+                    : (onBlack ? IslandTheme.roleColorOnBlack(nil) : IslandTheme.accent)
                 guard let velocity = velocities[note] else { return base }
                 // Never below half: a softly played note must still read as
                 // clearly pressed, not as a key that failed to draw.
@@ -149,9 +150,9 @@ public struct MiniPiano: View {
                              with: .color(Color.black.opacity(0.30)))
 
                 if pressed {
-                    context.fill(path, with: .color(heldColor(key.note)))
+                    context.fill(path, with: .color(heldColor(key.note, onBlack: true)))
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color.black.opacity(0.35), .clear]),
+                        Gradient(colors: [Color.black.opacity(0.20), .clear]),
                         startPoint: CGPoint(x: body.midX, y: body.minY),
                         endPoint: CGPoint(x: body.midX, y: body.midY)))
                 } else {
