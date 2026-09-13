@@ -98,8 +98,13 @@ public final class IslandController {
     }
 
     private func pointerMoved() {
-        guard window != nil, !pinned else { return }
+        guard let window else { return }
         let inside = islandScreenRect.contains(NSEvent.mouseLocation)
+        // Claim clicks only where the island actually is. Everywhere else in
+        // the window's much larger footprint they pass through to whatever is
+        // underneath.
+        window.ignoresMouseEvents = !inside
+        guard !pinned else { return }
         switch model.state {
         case .glance, .toast:
             if inside { setState(.expanded) }

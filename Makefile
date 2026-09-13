@@ -46,8 +46,11 @@ app: build icon | $(DIST) ## Assemble Chordware.app
 	@codesign --force --deep --sign - $(APP_BUNDLE)
 	@echo "  built $(APP_BUNDLE)"
 
-run: app ## Build and launch the app
-	@open $(APP_BUNDLE)
+run: install ## Build, install to /Applications, and relaunch
+	@pkill -f "$(APP).app/Contents/MacOS/$(APP)" 2>/dev/null || true
+	@sleep 1
+	@open -a "/Applications/$(APP).app"
+	@echo "  running /Applications/$(APP).app"
 
 install: app ## Copy the app to /Applications
 	@rm -rf /Applications/$(APP).app

@@ -36,7 +36,16 @@ public final class NotchWindow: NSPanel {
         hasShadow = false
         hidesOnDeactivate = false
         isMovable = false
-        ignoresMouseEvents = false
+        // Off until the pointer is actually over the island. The window is
+        // deliberately much larger than the island so the expanded panel has
+        // room to draw without resizing, and that footprint covers the top
+        // third of the screen at .statusBar level -- above every other window
+        // on the machine. Accepting clicks across all of it swallowed anything
+        // underneath, including the title bar of Chordware's own window.
+        //
+        // Returning nil from the content view's hitTest is not enough: that
+        // stops the *view* claiming the click, not the window.
+        ignoresMouseEvents = true
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         // Never take key status away from whatever the player is working in.
         becomesKeyOnlyIfNeeded = true
