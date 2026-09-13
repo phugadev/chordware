@@ -35,7 +35,7 @@ public struct CompanionView: View {
     /// Fixed heights, so nothing below the header can move as you play. A long
     /// chord symbol, a missing Roman numeral or an absent key would otherwise
     /// each change the height and nudge the keyboard.
-    private static func headerHeight(compact: Bool) -> CGFloat { compact ? 140 : 128 }
+    private static func headerHeight(compact: Bool) -> CGFloat { compact ? 100 : 96 }
     /// Less room means the chord should be *easier* to read, not harder: at a
     /// glance from a music stand, or across a room on a stream.
     private static func symbolSize(compact: Bool) -> CGFloat { compact ? 76 : 60 }
@@ -99,10 +99,12 @@ public struct CompanionView: View {
         VStack(spacing: 2) {
             // The rows still hold their height when there is nothing to put in
             // them -- the layout must not move -- but they draw nothing.
-            Text(model.isEmpty ? " " : (model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}"))
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(numeralColor)
-                .lineLimit(1)
+            if model.lockedKey != nil {
+                Text(model.isEmpty ? " " : (model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}"))
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(numeralColor)
+                    .lineLimit(1)
+            }
             Text(model.displaySymbol)
                 .font(.system(size: Self.symbolSize(compact: compact),
                               weight: .semibold, design: .rounded))
@@ -114,11 +116,13 @@ public struct CompanionView: View {
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(IslandTheme.secondary)
                 .lineLimit(1)
-            Group {
-                if model.isEmpty { Text(" ") } else { functionAndKey }
+            if model.lockedKey != nil {
+                Group {
+                    if model.isEmpty { Text(" ") } else { functionAndKey }
+                }
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .lineLimit(1)
             }
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
         .frame(height: Self.headerHeight(compact: compact), alignment: .top)
@@ -197,7 +201,7 @@ public struct CompanionView: View {
     /// This changes with the window, never with what is played, so nothing
     /// moves while you are playing.
     private static func panelHeight(in available: CGFloat) -> CGFloat {
-        max(120, available - (128 + 18 + 14) - 1 - (132 + 36) - 1 - 41)
+        max(120, available - (96 + 18 + 14) - 1 - (132 + 36) - 1 - 41)
     }
 
     /// How many scales fit in the room the panel actually has.
@@ -306,8 +310,11 @@ public struct CompanionView: View {
                 ForEach(Array(fits.prefix(Self.scaleRows(forPanel: height)).enumerated()),
                         id: \.offset) { _, fit in
                     HStack(spacing: 10) {
-                        // A scale's root is a note, not a degree of the key.
-                        Text("\(fit.root.name()) \(fit.scale.name)")
+                        // A scale's root is a note, so it is written the way
+                        // every other note on screen is written. Hard-coding
+                        // letters here put "D Minor Pentatonic" over "Re Fa Sol
+                        // La Do" -- the same root spelled two ways on one line.
+                        Text("\(model.naming.name(fit.root, in: model.key, unicode: true)) \(fit.scale.name)")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(IslandTheme.primary)
                             .frame(width: 190, alignment: .leading)
@@ -393,11 +400,7 @@ public struct CompanionView: View {
 
                 // How sure the detector is. Worth saying quietly, because an
                 // ambiguous voicing reads as a wrong answer otherwise.
-                if model.chord != nil {
-                    Text("\(Int(model.confidence * 100))%")
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
-                }
+
             }
             // Fixed, so nothing in it can change the height of everything above.
             .frame(height: 16)

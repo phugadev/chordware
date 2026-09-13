@@ -150,7 +150,7 @@ struct ProgressionStrip: View {
                             .font(IslandTheme.labelFont(10))
                             .foregroundStyle(event.id == events.last?.id
                                              ? IslandTheme.primary : IslandTheme.secondary)
-                        if let key = model.key {
+                        if model.lockedKey != nil, let key = model.key {
                             let numeral = RomanNumeralAnalyzer.analyze(event.chord, in: key)
                             Text(numeral.symbol(naming: model.naming))
                                 .font(.system(size: 8, weight: .medium, design: .rounded))

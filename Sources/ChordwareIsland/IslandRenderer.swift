@@ -70,6 +70,11 @@ public enum IslandRenderer {
                                          sounding: false) {
             written.append(url)
         }
+        // Nothing played yet: its own state, and the first thing anyone sees.
+        if let url = try renderCompanion(to: directory.appendingPathComponent("companion-empty.png"),
+                                         sounding: false, notes: []) {
+            written.append(url)
+        }
         // One key and two keys are not chords, but must still read out.
         if let url = try renderCompanion(to: directory.appendingPathComponent("companion-single.png"),
                                          notes: [62]) {
