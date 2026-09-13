@@ -197,7 +197,7 @@ public struct CompanionView: View {
     /// This changes with the window, never with what is played, so nothing
     /// moves while you are playing.
     private static func panelHeight(in available: CGFloat) -> CGFloat {
-        max(120, available - (128 + 18 + 14) - 1 - (132 + 36) - 1 - 55)
+        max(120, available - (128 + 18 + 14) - 1 - (132 + 36) - 1 - 41)
     }
 
     /// How many scales fit in the room the panel actually has.
@@ -231,85 +231,115 @@ public struct CompanionView: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// Rows, not columns.
+    ///
+    /// Three labelled columns meant every answer was a narrow strip with a lot
+    /// of air around it, and the notes needed six rows to say what fits on one.
+    /// A label and its content on a line reads faster and leaves the space for
+    /// the thing that actually needs it -- the scales.
     private func columns(height: CGFloat) -> some View {
-        HStack(alignment: .top, spacing: 28) {
-            column("NOTES") {
-                if let chord = model.chord {
-                    ForEach(Array(chord.spelledTones.enumerated()), id: \.offset) { _, tone in
-                        // A chord can be named without every tone being played:
-                        // the fifth is optional, so A + C reads as Am. Showing
-                        // the implied E as solidly as the two real notes makes
-                        // the keyboard look like it is missing a key.
-                        let sounding = model.heldNotes.contains {
-                            PitchClass($0) == tone.note.pitchClass
-                        }
-                        HStack(spacing: 8) {
-                            Text(model.naming.name(tone.note, in: model.key, unicode: true))
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(sounding ? IslandTheme.primary : IslandTheme.tertiary)
-                                .frame(width: 34, alignment: .leading)
-                            Text(tone.interval.shortName)
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundStyle(IslandTheme.tertiary)
-                                .frame(width: 30, alignment: .leading)
-                            // Whether the tone is actually under a finger is
-                            // already said by the colour; spelling it out in
-                            // words was diagnostics, not teaching.
-                            Text(tone.interval.longName)
-                                .font(.system(size: 11, design: .rounded))
-                                .foregroundStyle(sounding ? IslandTheme.secondary : IslandTheme.tertiary)
-                                .lineLimit(1)
-                        }
+        VStack(alignment: .leading, spacing: 12) {
+            notesRow
+            scalesBlock(height: height)
+            recentRow
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The chord's tones on one line, and which inversion it is.
+    ///
+    /// A tone the chord is named for but nobody is holding -- the fifth of a
+    /// two-note minor, say -- is dimmed rather than labelled, so the line stays
+    /// a line.
+    private var notesRow: some View {
+        HStack(spacing: 10) {
+            rowLabel("NOTES")
+            if let chord = model.chord {
+                ForEach(Array(chord.spelledTones.enumerated()), id: \.offset) { _, tone in
+                    let sounding = model.heldNotes.contains {
+                        PitchClass($0) == tone.note.pitchClass
                     }
-                } else if !model.heldNotes.isEmpty {
-                    // Not a chord, but still worth naming: which note, and where
-                    // it sits in the key.
-                    ForEach(model.heldNotes.sorted(), id: \.self) { note in
-                        HStack(spacing: 8) {
-                            Text(model.naming.name(PitchClass(note), in: model.key, unicode: true))
-                                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                .foregroundStyle(IslandTheme.primary)
-                                .frame(width: 34, alignment: .leading)
-                            Text(MIDINote.name(note))
-                                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                                .foregroundStyle(IslandTheme.tertiary)
-                                .frame(width: 30, alignment: .leading)
-                            Text(degreeDescription(of: note))
-                                .font(.system(size: 11, design: .rounded))
-                                .foregroundStyle(IslandTheme.secondary)
-                                .lineLimit(1)
-                        }
+                    HStack(spacing: 3) {
+                        Text(model.naming.name(tone.note, in: model.key, unicode: true))
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(sounding ? IslandTheme.primary : IslandTheme.tertiary)
+                        Text(tone.interval.shortName)
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundStyle(IslandTheme.tertiary)
                     }
-                } else {
-                    Text("nothing held")
-                        .font(.system(size: 11, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
+                }
+            } else if !model.heldNotes.isEmpty {
+                ForEach(model.heldNotes.sorted(), id: \.self) { note in
+                    Text(model.naming.name(PitchClass(note), in: model.key, unicode: true))
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(IslandTheme.primary)
                 }
             }
+            Spacer(minLength: 8)
+            if let inversion = model.chord?.inversion, inversion > 0 {
+                Text(Self.inversionName(inversion))
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(IslandTheme.secondary)
+            }
+        }
+        .lineLimit(1)
+    }
 
-            column("SCALES THAT FIT") {
+    private static func inversionName(_ inversion: Int) -> String {
+        let ordinals = ["", "1st", "2nd", "3rd", "4th", "5th"]
+        guard inversion < ordinals.count else { return "\(inversion)th inversion" }
+        return "\(ordinals[inversion]) inversion"
+    }
+
+    /// The scales, each one a name and its notes on the same line.
+    private func scalesBlock(height: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            rowLabel("SCALES")
+            VStack(alignment: .leading, spacing: 5) {
                 let fits = model.scaleFits
                 if fits.isEmpty {
                     Text("\u{2014}")
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(IslandTheme.tertiary)
                 }
-                ForEach(Array(fits.prefix(Self.scaleRows(forPanel: height)).enumerated()), id: \.offset) { _, fit in
-                    VStack(alignment: .leading, spacing: 1) {
+                ForEach(Array(fits.prefix(Self.scaleRows(forPanel: height)).enumerated()),
+                        id: \.offset) { _, fit in
+                    HStack(spacing: 10) {
                         // A scale's root is a note, not a degree of the key.
                         Text("\(fit.root.name()) \(fit.scale.name)")
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(IslandTheme.primary)
-                            .lineLimit(1)
+                            .frame(width: 190, alignment: .leading)
                         Text(fit.scale.spelled(root: fit.root, naming: model.naming, key: model.key)
                             .joined(separator: " "))
                             .font(.system(size: 10, design: .monospaced))
                             .foregroundStyle(IslandTheme.tertiary)
-                            .lineLimit(1)
                     }
+                    .lineLimit(1)
                 }
             }
+            Spacer(minLength: 0)
         }
+    }
+
+    /// What was played just before this, lifted out of the footer where it was
+    /// competing with the device name for the same strip.
+    private var recentRow: some View {
+        HStack(spacing: 10) {
+            rowLabel("RECENT")
+            ProgressionStrip(model: model)
+                .frame(maxWidth: 520, alignment: .leading)
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func rowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9, weight: .semibold, design: .rounded))
+            .foregroundStyle(IslandTheme.tertiary)
+            .tracking(0.8)
+            .frame(width: 52, alignment: .leading)
     }
 
     /// Where a lone note sits in the current key, in words.
@@ -361,17 +391,16 @@ public struct CompanionView: View {
 
                 Spacer(minLength: 12)
 
-                if !model.progression.isEmpty {
-                    ProgressionStrip(model: model)
-                        .frame(maxWidth: 460, alignment: .trailing)
+                // How sure the detector is. Worth saying quietly, because an
+                // ambiguous voicing reads as a wrong answer otherwise.
+                if model.chord != nil {
+                    Text("\(Int(model.confidence * 100))%")
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(IslandTheme.tertiary)
                 }
             }
-            // Fixed. The strip only renders once something has been played, and
-            // its chips grow a second line once a key is established, so the
-            // footer used to get taller twice -- shoving the panel, the
-            // keyboard and the header up by eight points each time. The row is
-            // now as tall as its tallest contents whether they are there or not.
-            .frame(height: 30)
+            // Fixed, so nothing in it can change the height of everything above.
+            .frame(height: 16)
             .padding(.horizontal, 24)
             .padding(.vertical, 12)
         }
