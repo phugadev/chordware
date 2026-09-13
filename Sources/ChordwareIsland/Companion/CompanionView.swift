@@ -30,12 +30,12 @@ public struct CompanionView: View {
     /// that. One tree that answers to its own height removes the toggle, the
     /// second header, the second keyboard call and the whole class of bug where
     /// two trees drift apart.
-    private static let panelThreshold: CGFloat = 520
+    private static let panelThreshold: CGFloat = 560
 
     /// Fixed heights, so nothing below the header can move as you play. A long
     /// chord symbol, a missing Roman numeral or an absent key would otherwise
     /// each change the height and nudge the keyboard.
-    private static func headerHeight(compact: Bool) -> CGFloat { compact ? 104 : 100 }
+    private static func headerHeight(compact: Bool) -> CGFloat { compact ? 140 : 128 }
     /// Less room means the chord should be *easier* to read, not harder: at a
     /// glance from a music stand, or across a room on a stream.
     private static func symbolSize(compact: Bool) -> CGFloat { compact ? 76 : 60 }
@@ -51,8 +51,7 @@ public struct CompanionView: View {
                     .padding(.vertical, compact ? 12 : 18)
                 if !compact {
                     Divider().overlay(IslandTheme.hairline)
-                    detail
-                    Spacer(minLength: 0)
+                    detail(height: Self.panelHeight(in: proxy.size.height))
                     footer
                 }
             }
@@ -88,37 +87,40 @@ public struct CompanionView: View {
     /// is playing. Swapping the empty state for fewer or smaller lines makes
     /// the header shorter when idle and taller when sounding, so every key
     /// press shoves the keyboard and everything under it up and down.
+    /// Centred: the chord is the thing you are looking at, and everything
+    /// else is a caption for it. Split left and right it read as a form with
+    /// two empty fields whenever nothing was playing.
+    ///
+    /// Every row is always present, at the same sizes, whether or not anything
+    /// is playing. Swapping the empty state for fewer or smaller lines makes
+    /// the header shorter when idle and taller when sounding, so every key
+    /// press shoves the keyboard and everything under it up and down.
     private func header(compact: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 16) {
-                Text(model.displaySymbol)
-                    .font(.system(size: Self.symbolSize(compact: compact),
-                                  weight: .semibold, design: .rounded))
-                    .foregroundStyle(headerSymbolColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.4)
-                    .contentTransition(.numericText())
-                Spacer(minLength: 12)
-                Text(model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}")
-                    .font(.system(size: 38, weight: .semibold, design: .rounded))
-                    .foregroundStyle(numeralColor)
-                    .lineLimit(1)
-            }
-            HStack(alignment: .firstTextBaseline, spacing: 16) {
-                Text(model.displayDetail)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(IslandTheme.secondary)
-                    .lineLimit(1)
-                Spacer(minLength: 12)
-                functionAndKey
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .lineLimit(1)
-            }
+        VStack(spacing: 2) {
+            Text(model.romanNumeral?.symbol(naming: model.naming) ?? "\u{2014}")
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(numeralColor)
+                .lineLimit(1)
+            Text(model.displaySymbol)
+                .font(.system(size: Self.symbolSize(compact: compact),
+                              weight: .semibold, design: .rounded))
+                .foregroundStyle(headerSymbolColor)
+                .lineLimit(1)
+                .minimumScaleFactor(0.4)
+                .contentTransition(.numericText())
+            Text(model.displayDetail)
+                .font(.system(size: 14, weight: .medium, design: .rounded))
+                .foregroundStyle(IslandTheme.secondary)
+                .lineLimit(1)
+            functionAndKey
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .lineLimit(1)
         }
+        .frame(maxWidth: .infinity)
         .frame(height: Self.headerHeight(compact: compact), alignment: .top)
-        .padding(.horizontal, compact ? 20 : 24)
-        .padding(.top, 20)
-        .padding(.bottom, compact ? 8 : 16)
+        .padding(.horizontal, 24)
+        .padding(.top, compact ? 14 : 18)
+        .padding(.bottom, compact ? 8 : 14)
     }
 
     /// What the Roman numeral means, and the key it means it in, on one line.
@@ -183,7 +185,26 @@ public struct CompanionView: View {
             .contentShape(Rectangle())
     }
 
-    private var detail: some View {
+    /// What is left after the header, the keyboard and the footer have taken
+    /// theirs. Reserving a fixed block instead made the panel overflow the
+    /// moment its contents needed more than the block -- five scales did -- and
+    /// the overflow drew straight through the footer.
+    ///
+    /// This changes with the window, never with what is played, so nothing
+    /// moves while you are playing.
+    private static func panelHeight(in available: CGFloat) -> CGFloat {
+        max(120, available - (128 + 18 + 14) - 1 - (132 + 36) - 1 - 55)
+    }
+
+    /// How many scales fit in the room the panel actually has.
+    ///
+    /// A scale row is a name over its notes: measured, 35 points. Guessing 29
+    /// put a fifth row half through the footer rule.
+    private static func scaleRows(forPanel height: CGFloat) -> Int {
+        max(2, min(5, Int((height - 36 - 18) / 35)))
+    }
+
+    private func detail(height: CGFloat) -> some View {
         HStack(alignment: .top, spacing: 28) {
             column("NOTES") {
                 if let chord = model.chord {
@@ -246,7 +267,7 @@ public struct CompanionView: View {
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(IslandTheme.tertiary)
                 }
-                ForEach(Array(fits.prefix(5).enumerated()), id: \.offset) { _, fit in
+                ForEach(Array(fits.prefix(Self.scaleRows(forPanel: height)).enumerated()), id: \.offset) { _, fit in
                     VStack(alignment: .leading, spacing: 1) {
                         // A scale's root is a note, not a degree of the key.
                         Text("\(fit.root.name()) \(fit.scale.name)")
@@ -264,14 +285,9 @@ public struct CompanionView: View {
         }
         .padding(.horizontal, 24)
         .padding(.vertical, 18)
-        // Reserved height. Without it the columns grow and shrink with their
-        // contents, so every chord change nudges everything below it -- which
-        // reads as the window twitching each time you play.
-        .frame(height: Self.detailHeight, alignment: .top)
+        .frame(height: height, alignment: .top)
+        .clipped()
     }
-
-    /// Room for the longest column the detail area can show: six chord tones.
-    private static let detailHeight: CGFloat = 190
 
     /// Where a lone note sits in the current key, in words.
     private func degreeDescription(of note: Int) -> String {

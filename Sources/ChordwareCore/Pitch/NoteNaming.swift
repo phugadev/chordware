@@ -7,11 +7,20 @@ import Foundation
 /// system, not the movable-do ear-training one. Session players read numbers.
 /// All three describe the same notes.
 public enum NoteNaming: String, Sendable, Hashable, CaseIterable, Codable {
+    /// What is offered. Absolute systems only.
+    public static var allCases: [NoteNaming] { [.letters, .fixedDo] }
+
     /// C D E F G A B.
     case letters
     /// Do Re Mi Fa Sol La Si, with Do fixed to C.
     case fixedDo
     /// 1–7 relative to the key, with accidentals: the Nashville system.
+    ///
+    /// Kept so a stored preference still decodes, but no longer offered. It
+    /// reads every note against the *detected* key, so noodling -- where the
+    /// key is a guess and changes under you -- turned a C6 into "1⁶" one moment
+    /// and something else the next. Letters and fixed do are absolute and can
+    /// never be wrong that way.
     case scaleDegrees
 
     public var displayName: String {

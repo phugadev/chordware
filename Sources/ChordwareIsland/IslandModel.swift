@@ -122,8 +122,11 @@ public final class IslandModel {
     private static let roleColorsKey = "ChordwareRoleColors"
 
     private static func loadNaming() -> NoteNaming {
-        UserDefaults.standard.string(forKey: namingKey)
+        let stored = UserDefaults.standard.string(forKey: namingKey)
             .flatMap(NoteNaming.init(rawValue:)) ?? .letters
+        // Scale degrees are no longer offered, so a preference left set to them
+        // would be stuck with no way back through the menu.
+        return NoteNaming.allCases.contains(stored) ? stored : .letters
     }
     private static func store(_ naming: NoteNaming) {
         UserDefaults.standard.set(naming.rawValue, forKey: namingKey)

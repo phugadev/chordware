@@ -83,14 +83,14 @@ public enum IslandRenderer {
         // what has to be checked is a range of heights: full, just above and
         // just below the point the panel is dropped, and the smallest useful
         // window.
-        for height in [600, 540, 500, 380, 280] as [CGFloat] {
+        for height in [600, 586, 570, 540, 380, 280] as [CGFloat] {
             let name = "companion-h\(Int(height)).png"
             if let url = try renderCompanion(to: directory.appendingPathComponent(name),
                                              size: CGSize(width: 900, height: height)) {
                 written.append(url)
             }
         }
-        for naming in [NoteNaming.fixedDo, .scaleDegrees] {
+        for naming in [NoteNaming.fixedDo] {
             let name = "companion-\(naming.rawValue).png"
             if let url = try renderCompanion(to: directory.appendingPathComponent(name),
                                              naming: naming) {
