@@ -18,6 +18,18 @@ struct WindowDragHandle: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) {}
 
     private final class DragView: NSView {
+        /// Let AppKit move the window itself, exactly as it does for the title
+        /// bar: it drags, and it honours the system's double-click setting.
+        override var mouseDownCanMoveWindow: Bool { true }
+
+        /// Chordware runs as an accessory app, so its window is usually not key
+        /// when you reach for it. A plain view refuses the first click -- that
+        /// click only activates the window -- while AppKit's own background
+        /// drag has no such rule. That is the whole reason the footer could be
+        /// dragged and the header could not.
+        override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+        /// Only reached if AppKit declines to move the window itself.
         override func mouseDown(with event: NSEvent) {
             window?.performDrag(with: event)
         }
