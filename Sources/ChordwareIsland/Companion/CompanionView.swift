@@ -349,29 +349,6 @@ public struct CompanionView: View {
             .frame(width: 52, alignment: .leading)
     }
 
-    /// Where a lone note sits in the current key, in words.
-    private func degreeDescription(of note: Int) -> String {
-        guard let key = model.key else { return "" }
-        let names = ["root", "2nd", "3rd", "4th", "5th", "6th", "7th"]
-        if let degree = key.scaleDegree(of: PitchClass(note)), degree - 1 < names.count {
-            return "\(names[degree - 1]) of \(key.name)"
-        }
-        return "outside \(key.name)"
-    }
-
-    @ViewBuilder
-    private func column<Content: View>(_ title: String,
-                                       @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                .foregroundStyle(IslandTheme.tertiary)
-                .tracking(0.8)
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     // MARK: - Footer
 
     private var footer: some View {

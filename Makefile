@@ -19,7 +19,9 @@ build: ## Build everything in release configuration
 	@swift build -c release
 
 test: ## Run the test suite
-	@swift build --product chordware-selftest 2>&1 | grep -E "error|warning:" || true
+	# No `|| true`. Piping the build through grep swallowed its exit status, so
+	# a compile failure ran the *previous* binary and reported it as a pass.
+	@swift build --product chordware-selftest
 	@./.build/debug/chordware-selftest
 
 cli: build ## Build and print CLI usage
