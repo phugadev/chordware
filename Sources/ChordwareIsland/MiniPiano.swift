@@ -100,7 +100,21 @@ public struct MiniPiano: View {
             // The keybed the keys sit in, so they are in something rather than
             // floating on the background.
             context.fill(Path(CGRect(x: 0, y: 0, width: size.width, height: size.height)),
-                         with: .color(Color(white: 0.06)))
+                         with: .color(IslandTheme.surfaceHigh))
+
+            // A struck key throws light onto what is around it. This is the
+            // single thing that separates a keyboard that is being played from
+            // a diagram of one, and it is drawn under every key so the glow
+            // spills between them rather than sitting on top.
+            for key in layout.keys where held.contains(key.note) {
+                let colour = heldColor(key.note, onBlack: key.isBlack)
+                let spread = key.rect.width * 1.6
+                let bloom = key.rect.insetBy(dx: -spread, dy: -spread * 0.35)
+                context.fill(Path(ellipseIn: bloom), with: .radialGradient(
+                    Gradient(colors: [colour.opacity(0.30), colour.opacity(0.0)]),
+                    center: CGPoint(x: bloom.midX, y: bloom.midY),
+                    startRadius: 0, endRadius: max(bloom.width, bloom.height) / 2))
+            }
 
             for key in layout.whiteKeys {
                 let rect = key.rect.insetBy(dx: 0.5, dy: 0)
@@ -122,14 +136,15 @@ public struct MiniPiano: View {
                         endPoint: CGPoint(x: body.midX, y: body.minY + body.height * 0.45)))
                 } else {
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color(white: 0.93), Color(white: 0.80)]),
+                        Gradient(colors: [Color(red: 0.945, green: 0.950, blue: 0.960),
+                                          Color(red: 0.800, green: 0.810, blue: 0.830)]),
                         startPoint: CGPoint(x: body.midX, y: body.minY),
                         endPoint: CGPoint(x: body.midX, y: body.maxY)))
                     // The front lip: the face you actually see on an upright.
                     let lip = CGRect(x: body.minX, y: body.maxY - lipHeight,
                                      width: body.width, height: lipHeight)
                     context.fill(Path(roundedRect: lip, cornerRadius: radius),
-                                 with: .color(Color(white: 0.70)))
+                                 with: .color(Color(red: 0.700, green: 0.712, blue: 0.735)))
                 }
                 // Hairline between keys instead of a gap.
                 context.stroke(path, with: .color(Color.black.opacity(0.35)), lineWidth: 0.5)
@@ -157,7 +172,8 @@ public struct MiniPiano: View {
                         endPoint: CGPoint(x: body.midX, y: body.midY)))
                 } else {
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color(white: 0.26), Color(white: 0.09)]),
+                        Gradient(colors: [Color(red: 0.175, green: 0.182, blue: 0.205),
+                                          Color(red: 0.055, green: 0.058, blue: 0.070)]),
                         startPoint: CGPoint(x: body.midX, y: body.minY),
                         endPoint: CGPoint(x: body.midX, y: body.maxY)))
                     // The lit top edge, where the light catches the bevel.

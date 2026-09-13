@@ -45,12 +45,20 @@ public struct CompanionView: View {
             let compact = proxy.size.height < Self.panelThreshold
             VStack(spacing: 0) {
                 header(compact: compact)
-                Divider().overlay(IslandTheme.hairline)
                 keyboardView(height: keyboardHeight(in: proxy.size.height, compact: compact))
-                    .padding(.horizontal, compact ? 16 : 20)
-                    .padding(.vertical, compact ? 12 : 18)
+                    .padding(compact ? 8 : 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(IslandTheme.surfaceHigh)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(IslandTheme.edgeLight, lineWidth: 1)
+                            )
+                            .shadow(color: .black.opacity(0.55), radius: 10, y: 4)
+                    )
+                    .padding(.horizontal, compact ? 14 : 18)
+                    .padding(.vertical, compact ? 10 : 14)
                 if !compact {
-                    Divider().overlay(IslandTheme.hairline)
                     detail(height: Self.panelHeight(in: proxy.size.height))
                     footer
                 }
@@ -59,6 +67,9 @@ public struct CompanionView: View {
         }
         .background(IslandTheme.background)
         .preferredColorScheme(.dark)
+        // A chord change is a musical event, so let it read as one. Short
+        // enough that it never lags behind the hands.
+        .animation(.easeOut(duration: 0.13), value: model.chord?.symbol())
     }
 
     /// With the panel gone the keyboard takes the room it leaves, within
@@ -129,6 +140,8 @@ public struct CompanionView: View {
         .padding(.horizontal, 24)
         .padding(.top, compact ? 14 : 18)
         .padding(.bottom, compact ? 8 : 14)
+        .frame(maxWidth: .infinity)
+        .background(IslandTheme.well)
     }
 
     /// What the Roman numeral means, and the key it means it in, on one line.
@@ -216,9 +229,19 @@ public struct CompanionView: View {
         Group {
             if model.isEmpty { emptyPanel } else { columns(height: height) }
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 18)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: height, alignment: .top)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(IslandTheme.surface)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(IslandTheme.edgeLight, lineWidth: 1)
+                )
+        )
+        .padding(.horizontal, 18)
         .clipped()
     }
 

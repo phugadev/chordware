@@ -5,11 +5,25 @@ import SwiftUI
 /// it has to blend into physically black hardware. The pill on a non-notched
 /// screen keeps the same palette so the two read as one product.
 public enum IslandTheme {
-    public static let background = Color.black
+    /// The ground. Not pure black: a window of #000 with #FFF text on it has
+    /// no depth to build on, because every surface laid over it can only go
+    /// lighter and there is nowhere to go darker. A hair of blue keeps it from
+    /// reading as a dead screen.
+    public static let background = Color(red: 0.043, green: 0.047, blue: 0.055)
+    /// Raised: the panel behind the keyboard and behind the detail rows.
+    public static let surface = Color(red: 0.075, green: 0.081, blue: 0.094)
+    /// Raised further, for the keybed the keys sit in.
+    public static let surfaceHigh = Color(red: 0.105, green: 0.112, blue: 0.128)
+    /// Recessed, for the well under the header.
+    public static let well = Color(red: 0.028, green: 0.031, blue: 0.038)
+
     public static let primary = Color.white
-    public static let secondary = Color.white.opacity(0.62)
-    public static let tertiary = Color.white.opacity(0.34)
-    public static let hairline = Color.white.opacity(0.12)
+    public static let secondary = Color.white.opacity(0.66)
+    public static let tertiary = Color.white.opacity(0.38)
+    public static let hairline = Color.white.opacity(0.09)
+    /// The lit top edge of a raised surface: one pixel of light so a card has
+    /// a top rather than just an outline.
+    public static let edgeLight = Color.white.opacity(0.07)
 
     public static let accent = Color(red: 0.42, green: 0.78, blue: 1.0)
     /// Belongs to the key.
