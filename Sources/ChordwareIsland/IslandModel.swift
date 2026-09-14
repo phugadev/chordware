@@ -29,9 +29,44 @@ public final class IslandModel {
     /// Pedal state. Shown because a stuck pedal is otherwise invisible and
     /// looks exactly like the display refusing to let go of a chord.
     public var sustainDown = false
+    /// TRIAL. A chord from the history, held on screen so it can be looked at.
+    ///
+    /// Only ever set by clicking one. Playing anything clears it: the window's
+    /// job is to say what is happening now, and an inspected chord that
+    /// outlived the next thing you played would be a lie about that.
+    public var inspecting: ChordEvent?
+
     public init() {}
 
     public var chord: Chord? { candidates.first?.chord }
+
+    /// What the readout and the keyboard should show: the chord being inspected
+    /// if there is one, otherwise whatever is under your hands.
+    public var shownChord: Chord? { inspecting?.chord ?? chord }
+    public var shownNotes: [Int] {
+        guard let inspecting else { return heldNotes }
+        // Events carry the notes that were actually played, which is the point
+        // -- you want to see what your hands did, not a textbook voicing. An
+        // event recorded without them would otherwise name a chord over a blank
+        // keyboard, which reads as broken rather than as missing data.
+        return inspecting.notes.isEmpty ? Self.rootPosition(inspecting.chord)
+                                        : inspecting.notes
+    }
+
+    /// A plain voicing from middle C up, for an event with no notes of its own.
+    private static func rootPosition(_ chord: Chord) -> [Int] {
+        let root = 60 + chord.root.pitchClass.value
+        var notes: [Int] = []
+        for tone in chord.spelledTones {
+            let above = root + ((tone.note.pitchClass.value - chord.root.pitchClass.value) % 12 + 12) % 12
+            notes.append(above)
+        }
+        return notes.sorted()
+    }
+
+    public func inspect(_ event: ChordEvent) {
+        inspecting = inspecting?.id == event.id ? nil : event
+    }
 
     /// How note and chord names are written. Letters, always -- the menu that
     /// offered solfège and scale degrees was two more things to get wrong.
@@ -44,13 +79,13 @@ public final class IslandModel {
     /// correctly, and for teaching or screen recording the single note is
     /// exactly what the viewer needs to see.
     public var displaySymbol: String {
-        if let chord { return chord.symbol(naming: naming, in: key, unicode: true) }
-        switch heldNotes.count {
+        if let chord = shownChord { return chord.symbol(naming: naming, in: key, unicode: true) }
+        switch shownNotes.count {
         case 0: return "\u{2013}\u{2009}\u{2013}\u{2009}\u{2013}"
         case 1:
-            return naming.name(PitchClass(heldNotes[0]), in: key, unicode: true)
+            return naming.name(PitchClass(shownNotes[0]), in: key, unicode: true)
         default:
-            let names = heldNotes.sorted().map {
+            let names = shownNotes.sorted().map {
                 naming.name(PitchClass($0), in: key, unicode: true)
             }
             return names.joined(separator: "\u{2009}\u{2013}\u{2009}")
@@ -58,18 +93,18 @@ public final class IslandModel {
     }
 
     public var displayDetail: String {
-        if let chord { return chord.spokenName(naming: naming, in: key) }
-        switch heldNotes.count {
+        if let chord = shownChord { return chord.spokenName(naming: naming, in: key) }
+        switch shownNotes.count {
         case 0: return ""
         case 1:
             // Spelled through exactly the same call as `displaySymbol`, so the
             // two lines cannot disagree. They did: Bb in the chord, A#2 in the
             // caption under it, for one key held.
-            let note = heldNotes[0]
+            let note = shownNotes[0]
             let name = naming.name(PitchClass(note), in: key, unicode: true)
             return "single note \u{00B7} \(name)\(MIDINote.octave(note))"
         case 2:
-            return ChordDetector.describeDyad(midiNotes: heldNotes).map { "interval \u{00B7} \($0)" }
+            return ChordDetector.describeDyad(midiNotes: shownNotes).map { "interval \u{00B7} \($0)" }
                 ?? "two notes"
         default: return "no chord matches these notes"
         }
@@ -80,7 +115,7 @@ public final class IslandModel {
     /// reserves room for a chord, its notes and its scales, and filling that
     /// room with labelled but empty slots -- "NOTES / nothing held", "SCALES
     /// THAT FIT / -" -- shows the scaffolding rather than the app.
-    public var isEmpty: Bool { chord == nil && heldNotes.isEmpty }
+    public var isEmpty: Bool { shownChord == nil && shownNotes.isEmpty }
 
 
     /// Show notes that do not form a nameable chord, so a single key still
@@ -89,6 +124,7 @@ public final class IslandModel {
         candidates = []
         heldNotes = notes
         isSounding = !notes.isEmpty
+        if !notes.isEmpty { inspecting = nil }
     }
 
     /// Push a new detection into the island, moving it out of idle.
@@ -97,6 +133,7 @@ public final class IslandModel {
         self.candidates = candidates
         self.heldNotes = heldNotes
         isSounding = !heldNotes.isEmpty
+        if !heldNotes.isEmpty { inspecting = nil }
         // Only a settled chord goes into the history. A hand landing on G major
         // passes through B minor on its way, and a progression strip full of
         // chords nobody played is worse than no strip at all.
@@ -123,6 +160,7 @@ public final class IslandModel {
 
     /// Forget the chord entirely, for an explicit reset.
     public func clearChord() {
+        inspecting = nil
         candidates = []
         heldNotes = []
         isSounding = false
