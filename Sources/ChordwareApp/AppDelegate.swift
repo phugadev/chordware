@@ -152,6 +152,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Launching Chordware again brings the window back.
+    ///
+    /// Without this the app has exactly one way in: a keyboard shortcut, and a
+    /// status item that any app with a menu-bar indicator -- Logic's recording
+    /// dot, say -- can push off the end of a MacBook's menu bar. Close the
+    /// window and it is running, invisible, and unreachable unless you happen
+    /// to remember Control-Option-Command-C. Double-clicking the app, hitting
+    /// it in Spotlight or `open -a` all arrive here, which is what anyone tries
+    /// first.
+    func applicationShouldHandleReopen(_ sender: NSApplication,
+                                       hasVisibleWindows: Bool) -> Bool {
+        windowController?.show()
+        return true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         // Release anything still sounding so a quit mid-chord cannot leave a
         // note hanging in the DAW.

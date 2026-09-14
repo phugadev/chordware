@@ -95,7 +95,15 @@ public final class AppModel {
     public var displayDetail: String {
         let solfege = self.solfege
         let suffix = solfege.isEmpty ? "" : "  \u{00B7}  " + solfege
-        if let chord = shownChord { return chord.spokenName(naming: naming, in: key) + suffix }
+        // The chord's notes, not its spoken name. "C dominant thirteenth" is
+        // the symbol above spelled out; the letters are the half that lines up
+        // one-to-one with the solfège beside them, which is the whole point of
+        // having both: C is Do, E is Mi, Bb is Sib.
+        if let chord = shownChord {
+            let letters = chord.spelledTones
+                .map { naming.name($0.note, in: key, unicode: true) }.joined(separator: " ")
+            return letters + suffix
+        }
         switch shownNotes.count {
         case 0: return ""
         case 1:

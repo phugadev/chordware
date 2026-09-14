@@ -80,6 +80,14 @@ public final class WindowController: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
+        // AppKit releases a programmatically created window when it is closed,
+        // and the red button really does close it -- our own close() only
+        // orders it out. So clicking red left this controller holding a pointer
+        // to a freed window, and the next thing to touch it segfaulted: the
+        // reopen handler, or Control-Option-Command-C, which is the one way
+        // back in when the status item is hidden behind another app's menu-bar
+        // icon. The controller owns the window; nothing else may free it.
+        window.isReleasedWhenClosed = false
         window.title = "Chordware"
         window.titlebarAppearsTransparent = true
         // Visible, like a Mac app's window has always been. It names what you
