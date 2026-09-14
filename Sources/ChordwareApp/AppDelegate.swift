@@ -57,8 +57,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             toggleWindow: { window.isFrontmost ? window.close() : window.show() },
             toggleAlwaysOnTop: { window.setAlwaysOnTop(!window.isAlwaysOnTop) },
             exportPerformance: { [weak self] in self?.exportPerformance() },
-            chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
-            chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
             togglePassthrough: { [weak self] in
                 guard let out = self?.bridge?.session.midiOut else { return }
                 out.passthrough.toggle()
@@ -71,7 +69,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             clearHistory: { [weak self] in self?.model.clearHistory() },
             setKeyboardSize: { [weak self] size in self?.bridge?.setKeyboardSize(size) }
         ))
-        menuBar.currentSourceIsAudio = { [weak self] in self?.bridge?.session.source == .audio }
         menuBar.currentAlwaysOnTop = { window.isAlwaysOnTop }
         menuBar.currentPassthrough = { [weak self] in self?.bridge?.session.midiOut.passthrough ?? false }
         menuBar.currentPerformanceCount = { [weak self] in self?.bridge?.session.recorder.count ?? 0 }
@@ -130,11 +127,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             demo = driver
         } else if !arguments.contains("--no-input") {
             let bridge = SessionBridge(model: model)
-            if arguments.contains("--audio") { bridge.session.source = .audio }
-            if let index = arguments.firstIndex(of: "--audio-device"), index + 1 < arguments.count {
-                bridge.session.source = .audio
-                bridge.session.startAudio(deviceID: arguments[index + 1])
-            }
             bridge.start()
             self.bridge = bridge
         }

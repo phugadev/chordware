@@ -4,16 +4,14 @@ import ChordwareCore
 /// A status-bar item, so a background app with no Dock icon is still reachable.
 ///
 /// Deliberately short. This menu used to carry a display mode, a key you could
-/// lock, three note-naming systems, a role-colour toggle and two clear
-/// commands, for a window that no longer has any of those things on it.
+/// lock, three note-naming systems, a role-colour toggle and a choice of audio
+/// input, for a window that has none of those things on it.
 @MainActor
 public final class MenuBarController: NSObject, NSMenuDelegate {
     public struct Actions {
         public var toggleWindow: () -> Void
         public var toggleAlwaysOnTop: () -> Void
         public var exportPerformance: () -> Void
-        public var chooseMIDI: () -> Void
-        public var chooseAudio: () -> Void
         public var togglePassthrough: () -> Void
         public var panic: () -> Void
         public var clearHistory: () -> Void
@@ -22,8 +20,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         public init(toggleWindow: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
                     exportPerformance: @escaping () -> Void,
-                    chooseMIDI: @escaping () -> Void,
-                    chooseAudio: @escaping () -> Void,
                     togglePassthrough: @escaping () -> Void,
                     panic: @escaping () -> Void,
                     clearHistory: @escaping () -> Void,
@@ -31,8 +27,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             self.toggleWindow = toggleWindow
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
             self.exportPerformance = exportPerformance
-            self.chooseMIDI = chooseMIDI
-            self.chooseAudio = chooseAudio
             self.togglePassthrough = togglePassthrough
             self.panic = panic
             self.clearHistory = clearHistory
@@ -41,7 +35,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     /// Queried when the menu opens, so the state shown is current.
-    public var currentSourceIsAudio: () -> Bool = { false }
     public var currentAlwaysOnTop: () -> Bool = { false }
     public var currentChordSummary: () -> String? = { nil }
     public var currentPassthrough: () -> Bool = { false }
@@ -98,14 +91,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             self?.actions.toggleAlwaysOnTop()
         }
         menu.addItem(.separator())
-
-        let audio = currentSourceIsAudio()
-        add(menu, "Listen to MIDI", key: "", checked: !audio) { [weak self] in
-            self?.actions.chooseMIDI()
-        }
-        add(menu, "Listen to Audio", key: "", checked: audio) { [weak self] in
-            self?.actions.chooseAudio()
-        }
 
         let keyboard = NSMenuItem(title: "Keyboard", action: nil, keyEquivalent: "")
         let keyboardMenu = NSMenu()

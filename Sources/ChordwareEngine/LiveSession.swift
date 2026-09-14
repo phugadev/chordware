@@ -1,25 +1,18 @@
 import ChordwareCore
-import ChordwareSignal
 import Foundation
 
 /// The single place notes become harmony.
 ///
-/// MIDI and audio arrive by different routes but converge here, so the island,
-/// the progression recorder and (later) the HTTP API all consume one stream
-/// rather than each re-deriving chords from raw input.
+/// The window, the progression recorder and the performance capture all consume
+/// one stream rather than each re-deriving chords from raw MIDI.
 @MainActor
 public final class LiveSession {
-    public enum InputSource: String, CaseIterable, Sendable {
-        case midi, audio
-    }
-
     public struct Update: Sendable {
         public let candidates: [ChordCandidate]
-        /// Notes to light up: keys held, or the voices heard in the audio.
+        /// The keys held.
         public let notes: [Int]
         public let key: Key?
         public let keyConfidence: Double
-        public let chroma: [Double]?
         /// How hard each held key was struck, for showing dynamics.
         public let velocities: [Int: Int]
         public let sustainDown: Bool
@@ -28,10 +21,6 @@ public final class LiveSession {
         /// that was played, rather than the two notes that happened to land
         /// first. Only settled chords belong in the progression or the key.
         public let isSettled: Bool
-    }
-
-    public var source: InputSource = .midi {
-        didSet { if source != oldValue { switchSource() } }
     }
 
     public private(set) var held = HeldNotes()
@@ -48,7 +37,6 @@ public final class LiveSession {
 
     public let midiIn = MIDIInputEngine()
     public let midiOut = MIDIOutputEngine()
-    public let audioIn = AudioInputEngine()
     public let synth = PreviewSynth()
     /// Always capturing, so a good idea found by accident is not lost.
     public let recorder = PerformanceRecorder()
@@ -57,17 +45,12 @@ public final class LiveSession {
     public var onError: ((Error) -> Void)?
 
     private let keyEstimator = KeyEstimator(halfLife: 14, minimumObservations: 4)
-    private var extractor: ChromaExtractor?
-    private let tracker = AudioChordTracker()
-    private var extractorSampleRate: Double = 0
-    private var lastChroma: [Double]?
     /// The notes that produced the chord on screen, so a shrinking set can be
     /// told apart from a new one.
     private var chordAnchor: Set<Int> = []
     /// Bumped on every change, so a pending settle knows it is stale.
     private var settleGeneration = 0
     private var hasPendingSettle = false
-    private var audioNotes: [Int] = []
     private let started = Date()
 
     public init() {
@@ -86,13 +69,11 @@ public final class LiveSession {
         } catch {
             onError?(error)
         }
-        if source == .audio { startAudio() }
     }
 
     public func stop() {
         midiIn.stop()
         midiOut.stop()
-        audioIn.stop()
         synth.stop()
     }
 
@@ -123,7 +104,7 @@ public final class LiveSession {
             recorder.closeOpenNotes(at: now)
             changed = held.allNotesOff()
         }
-        guard changed, source == .midi else { return }
+        guard changed else { return }
         analyseHeldNotes()
     }
 
@@ -194,7 +175,7 @@ public final class LiveSession {
         guard let chord = candidates.first?.chord else { return }
         keyEstimator.observe(chord: chord, at: Date().timeIntervalSince(started))
         updateKey()
-        publish(notes: source == .midi ? held.sounding : audioNotes, settled: true)
+        publish(notes: held.sounding, settled: true)
     }
 
     /// Stop a pending settle, for when the chord is being torn down rather than
@@ -202,70 +183,6 @@ public final class LiveSession {
     private func cancelSettle() {
         settleGeneration &+= 1
         hasPendingSettle = false
-    }
-
-    // MARK: - Audio
-
-    private func switchSource() {
-        held.allNotesOff()
-        candidates = []
-        chordAnchor = []
-        cancelSettle()
-        audioNotes = []
-        lastChroma = nil
-        tracker.reset()
-        switch source {
-        case .midi: audioIn.stop()
-        case .audio: startAudio()
-        }
-        publish(notes: [])
-    }
-
-    public func startAudio(deviceID: String? = nil) {
-        audioIn.onSamples = { [weak self] samples, rate in
-            self?.consume(samples: samples, sampleRate: rate)
-        }
-        Task { @MainActor in
-            guard await AudioInputEngine.requestPermission() else {
-                onError?(AudioEngineError.permissionDenied)
-                return
-            }
-            do {
-                try audioIn.start(deviceID: deviceID)
-            } catch {
-                onError?(error)
-            }
-        }
-    }
-
-    private func consume(samples: [Float], sampleRate: Double) {
-        guard source == .audio else { return }
-        if extractor == nil || extractorSampleRate != sampleRate {
-            extractor = ChromaExtractor(configuration: .init(sampleRate: sampleRate))
-            extractorSampleRate = sampleRate
-            tracker.reset()
-        }
-        guard let extractor else { return }
-
-        for frame in extractor.process(samples: samples) {
-            lastChroma = frame.values
-            audioNotes = frame.notes.sorted()
-            let previous = tracker.chord
-            tracker.observe(frame)
-            guard tracker.chord != previous else { continue }
-
-            if let chord = tracker.chord {
-                candidates = tracker.rank(frame, limit: 5).map {
-                    ChordCandidate(chord: $0.chord, confidence: min(1, $0.score),
-                                   score: $0.score, missing: [], extras: [])
-                }
-                keyEstimator.observe(chord: chord, at: Date().timeIntervalSince(started))
-                updateKey()
-            } else {
-                candidates = []
-            }
-            publish(notes: audioNotes)
-        }
     }
 
     // MARK: - Key
@@ -276,28 +193,10 @@ public final class LiveSession {
         guard lockedKey == nil, let estimate = keyEstimator.estimate else { return }
         key = estimate.key
         keyConfidence = estimate.confidence
-        tracker.key = estimate.key
-    }
-
-    private func republish() {
-        publish(notes: source == .midi ? held.sounding : audioNotes)
     }
 
     /// Detect again with the current key context, then publish.
-    private func reanalyse() {
-        switch source {
-        case .midi:
-            analyseHeldNotes()
-        case .audio:
-            let notes = audioNotes
-            if !notes.isEmpty {
-                candidates = ChordDetector.detect(
-                    midiNotes: notes,
-                    options: ChordDetector.Options(key: effectiveKey, maxCandidates: 5))
-            }
-            republish()
-        }
-    }
+    private func reanalyse() { analyseHeldNotes() }
 
     private func publish(notes: [Int], settled: Bool = false) {
         onUpdate?(Update(
@@ -305,7 +204,6 @@ public final class LiveSession {
             notes: notes,
             key: effectiveKey,
             keyConfidence: lockedKey != nil ? 1 : keyConfidence,
-            chroma: source == .audio ? lastChroma : nil,
             velocities: held.velocities,
             sustainDown: held.sustainDown,
             timeMs: nowMs,
@@ -328,7 +226,6 @@ public final class LiveSession {
         candidates = []
         chordAnchor = []
         cancelSettle()
-        tracker.reset()
         midiOut.allNotesOff()
         synth.allNotesOff()
         publish(notes: [])

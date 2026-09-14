@@ -22,13 +22,5 @@ enum Devices {
         }
 
         print("")
-        print("  " + Style.bold("AUDIO INPUTS"))
-        for device in AudioInputEngine.inputDevices() {
-            var line = "    " + Style.pad(Style.magenta(device.name), 34)
-            line += Style.dim(Style.pad("\(device.channels) ch", 8))
-            if device.isLoopback { line += Style.green("loopback \u{2014} carries system audio") }
-            print(line)
-        }
-        print("")
     }
 }

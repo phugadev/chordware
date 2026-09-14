@@ -30,23 +30,18 @@ final class SessionBridge {
     func stop() { session.stop() }
 
     private func refreshInputLabel() {
-        switch session.source {
-        case .midi:
-            let active = session.midiIn.activeEndpoints
-            // Name whatever last actually sent a note. Falling back to the
-            // first connected port labels the app "Logic Pro Virtual Out" when
-            // the keyboard is unplugged, which tells the player nothing.
-            if let playing = session.midiIn.lastActiveEndpoint {
-                model.inputLabel = playing.name
-            } else if let hardware = active.first(where: { !$0.isVirtual }) {
-                model.inputLabel = hardware.name
-            } else if active.isEmpty {
-                model.inputLabel = "no MIDI device connected"
-            } else {
-                model.inputLabel = "waiting for MIDI\u{2026}"
-            }
-        case .audio:
-            model.inputLabel = session.audioIn.currentDevice?.name ?? "no audio input"
+        let active = session.midiIn.activeEndpoints
+        // Name whatever last actually sent a note. Falling back to the first
+        // connected port labels the app "Logic Pro Virtual Out" when the
+        // keyboard is unplugged, which tells the player nothing.
+        if let playing = session.midiIn.lastActiveEndpoint {
+            model.inputLabel = playing.name
+        } else if let hardware = active.first(where: { !$0.isVirtual }) {
+            model.inputLabel = hardware.name
+        } else if active.isEmpty {
+            model.inputLabel = "no MIDI device connected"
+        } else {
+            model.inputLabel = "waiting for MIDI\u{2026}"
         }
     }
 

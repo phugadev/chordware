@@ -146,8 +146,8 @@ public final class KeyEstimator {
         guard totalWeight >= minimumObservations else { return nil }
         // The variety requirement is about *chords*: one chord is weak evidence
         // for a key. Raw pitch classes carry no roots and are a different kind
-        // of evidence -- a chroma frame or an explicit set of notes -- so they
-        // are judged on weight alone, as before.
+        // of evidence -- an explicit set of notes, as the CLI passes -- so they
+        // are judged on weight alone.
         let sawChords = rootObservations.contains { $0 > 0 }
         guard !sawChords || distinctRoots >= minimumDistinctRoots else { return nil }
         let ranked = adjustForMode(Self.rank(weights: weights))

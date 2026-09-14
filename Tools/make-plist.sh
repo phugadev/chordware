@@ -20,8 +20,6 @@ cat <<PLIST
     <key>NSHighResolutionCapable</key><true/>
     <!-- The island is the entire interface: no Dock icon, no menu bar item. -->
     <key>LSUIElement</key><true/>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Chordware listens to an audio input you choose so it can detect chords in what you are playing or listening to. Audio is analysed on your Mac and never leaves it.</string>
 </dict>
 </plist>
 PLIST

@@ -36,7 +36,7 @@ enum CLI {
           chord <symbol>           describe one chord: tones, intervals, scales
           scales [query]           browse the scale library
           key <notes|chords>       estimate the key
-          devices                  list MIDI and audio inputs
+          devices                  list connected MIDI inputs
           version                  print the version
 
         \(Style.bold("EXAMPLES"))

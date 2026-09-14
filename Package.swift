@@ -18,21 +18,14 @@ let package = Package(
             path: "Sources/ChordwareCore",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
-        // System integration: CoreMIDI, audio input, the preview synth.
+        // System integration: CoreMIDI and the preview synth.
         .target(
             name: "ChordwareEngine",
-            dependencies: ["ChordwareCore", "ChordwareSignal"],
+            dependencies: ["ChordwareCore"],
             path: "Sources/ChordwareEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
-        // Audio to chroma to chord, on Accelerate.
-        .target(
-            name: "ChordwareSignal",
-            dependencies: ["ChordwareCore"],
-            path: "Sources/ChordwareSignal",
-            swiftSettings: [.swiftLanguageMode(.v5)]
-        ),
-        // The notch island: window, shape, screen geometry, state machine.
+                // The notch island: window, shape, screen geometry, state machine.
         // Kept separate from the app target so it can be driven by fake data.
         .target(
             name: "ChordwareUI",
@@ -62,7 +55,7 @@ let package = Package(
         // who can build the app at all. See Sources/ChordwareSelfTest/Harness.swift.
         .executableTarget(
             name: "chordware-selftest",
-            dependencies: ["ChordwareCore", "ChordwareUI", "ChordwareEngine", "ChordwareSignal"],
+            dependencies: ["ChordwareCore", "ChordwareUI", "ChordwareEngine"],
             path: "Sources/ChordwareSelfTest",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

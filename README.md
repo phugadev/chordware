@@ -6,10 +6,7 @@ Play, and the window shows it: the chord in amber on black, the keys under your
 fingers lit and named with their octave, and the last few chords along the foot.
 Lift your hands and the chord goes back to black; the history stays. Your MIDI
 device is in the title bar. That is the whole window. Put it
-on a second screen while you practise, or beside your hands while you record. It
-reads your MIDI keyboard **or any audio your Mac can hear**, so it works on a
-Logic bounce, a DJ deck, a YouTube video or a mic'd guitar just as well as on a
-controller.
+on a second screen while you practise, or beside your hands while you record. It reads your MIDI keyboard.
 
 Free, MIT-licensed, no accounts, no telemetry, nothing leaves your machine.
 
@@ -19,20 +16,22 @@ Free, MIT-licensed, no accounts, no telemetry, nothing leaves your machine.
 started as "could I build that myself" and ended up somewhere else, because two
 limits in the original were worth attacking:
 
-- **It is MIDI-only.** No keyboard, no chords. It cannot tell you what is
-  happening in a recording.
 - **It stops at identification.** It names what you played. It does not analyse
   function, capture progressions, suggest continuations, or expose any of it to
   other software.
 
-So Chordware does audio as well as MIDI, and treats naming a chord as the
-*start* of the job.
+Chordware listens to MIDI too. Audio chord detection was built, measured
+against recorded piano, electric piano and guitar at 22 of 24 chords, and then
+removed: it needs a loopback driver and a routing decision before it can hear
+anything, which is a setup chore in front of a tool whose whole point is that
+you sit down and play. The commit is in the history if it is ever worth
+reviving.
 
 ## What it does
 
 In the window:
 
-- **Live chord detection** from MIDI or audio, on a keyboard you can watch.
+- **Live chord detection** from MIDI, on a keyboard you can watch.
 - **Three colours, no legend.** Amber for the chord, green for white keys under
   your fingers, violet for black ones. Colouring each key by its function in the
   chord was tried, and it asks you to learn a legend before the display tells
@@ -83,26 +82,6 @@ make run        # builds and launches
 ```
 
 `make` on its own lists every target. `make test` runs the suite.
-
-## Reading audio
-
-Chordware listens to an audio *input*, so to analyse what your Mac is playing
-you need a loopback device that turns output into input.
-[BlackHole](https://github.com/ExistentialAudio/BlackHole) is free:
-
-```bash
-brew install --cask blackhole-16ch
-```
-
-Then create a Multi-Output Device in Audio MIDI Setup containing both your
-speakers and BlackHole, select it as your system output, and point Chordware at
-BlackHole as its input. You hear the audio and Chordware sees it.
-
-`chordware devices` lists everything available and flags which inputs are
-loopback.
-
-macOS gates all audio input behind the microphone permission, including virtual
-devices, so Chordware asks for it the first time you use audio.
 
 ### How well it works
 
@@ -218,8 +197,7 @@ your `PATH` if you want it there.
 ```
 ChordwareCore     pure Swift music theory: pitch, chords, scales, analysis.
                   No system frameworks, no I/O. Everything else depends on it.
-ChordwareSignal   audio to chroma to chord, on Accelerate.
-ChordwareEngine   CoreMIDI, audio input, preview synth, LiveSession.
+ChordwareEngine   CoreMIDI in and out, the preview synth, LiveSession.
 ChordwareUI       the window: the keyboard, the chord name and the menu bar item.
 ChordwareApp      the app; the only place the engine and the view meet.
 chordware         the CLI.
@@ -227,7 +205,7 @@ chordware         the CLI.
 
 Keeping the theory in a dependency-free target is what lets the same engine back
 the window, the CLI and the tests, and is why the suite runs without a window,
-a keyboard or an audio device.
+a keyboard attached.
 
 ## Tests
 
@@ -253,8 +231,8 @@ run, at every window height the layout has to survive.
 
 ## Status
 
-Working: the window, MIDI in, virtual MIDI out with passthrough, audio chord
-detection, performance capture, and the CLI over the full engine.
+Working: the window, MIDI in, virtual MIDI out with passthrough, performance
+capture, and the CLI over the full engine.
 
 Not yet: the local HTTP API. Suggestion and reharmonisation are deliberately out
 of scope — they serve composing rather than seeing what you play.
