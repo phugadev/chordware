@@ -33,7 +33,7 @@ public enum IslandRenderer {
 
         // Every height the window can be dragged to, from the smallest the
         // layout allows upward.
-        for height in [440, 340, 296, 236] as [CGFloat] {
+        for height in [400, 320, 272, 212] as [CGFloat] {
             try shot("companion-h\(Int(height))") {
                 try renderCompanion(to: $0, size: CGSize(width: 900, height: height))
             }
@@ -51,7 +51,7 @@ public enum IslandRenderer {
         }
         // Narrow, where the keys are at their smallest and the labels drop out.
         try shot("companion-narrow") {
-            try renderCompanion(to: $0, size: CGSize(width: 520, height: 236))
+            try renderCompanion(to: $0, size: CGSize(width: 520, height: 212))
         }
         return written
     }
@@ -61,7 +61,7 @@ public enum IslandRenderer {
                                        notes: [Int]? = nil,
                                        palette: IslandTheme.Palette = IslandTheme.standard,
 
-                                       size: CGSize = CGSize(width: 900, height: 296)) throws -> URL? {
+                                       size: CGSize = CGSize(width: 900, height: 272)) throws -> URL? {
         let model = IslandPreviewData.model()
         model.isSounding = sounding
         if !sounding { model.heldNotes = [] }

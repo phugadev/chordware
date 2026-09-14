@@ -182,6 +182,13 @@ public struct Chord: Hashable, Sendable, CustomStringConvertible {
                 // Match the key's accidental direction: flat keys spell flat.
                 if key.preferFlats && note.alteration > 0 { total += 3.0 }
                 if !key.preferFlats && note.alteration < 0 { total += 1.5 }
+            } else if note.alteration > 0 {
+                // No key to ask, and F# and Gb cost exactly the same by
+                // accidental count -- three sharps or three flats for a sus2
+                // either way. The tie used to go to whichever was built first,
+                // which was the sharp. Small enough that it only ever breaks a
+                // tie: a spelling that genuinely wins on accidentals still wins.
+                total += 0.25
             }
             return total
         }

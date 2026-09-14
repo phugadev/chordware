@@ -69,9 +69,11 @@ public enum NoteNaming: String, Sendable, Hashable, CaseIterable, Codable {
         }
     }
 
-    /// A pitch class has no spelling of its own, so one is chosen from the key.
+    /// A pitch class has no spelling of its own, so one is chosen from the key
+    /// -- and from flats when there is no key, because in the keys people play
+    /// in, the black notes are flats.
     public func name(_ pc: PitchClass, in key: Key? = nil, unicode: Bool = false) -> String {
-        let spelled = SpelledNote.natural(pc, preferFlats: key?.preferFlats ?? false)
+        let spelled = SpelledNote.natural(pc, preferFlats: key?.preferFlats ?? true)
         return name(spelled, in: key, unicode: unicode)
     }
 

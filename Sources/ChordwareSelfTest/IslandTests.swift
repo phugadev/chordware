@@ -36,6 +36,52 @@ func runIslandTests(_ t: Harness) {
                     "but the event is still closed with a duration")
         }
 
+        t.test("a voicing keeps its name however it is stacked or spread") {
+            // Inversions, drop voicings, doublings and a two-octave spread are
+            // the same chord, and an inversion says so with a slash rather than
+            // by becoming a different chord. Getting the bass note *into* the
+            // name is the point: C and C/E are the same harmony and not the
+            // same sound under your hands.
+            let cases: [(String, String)] = [
+                ("C4 E4 G4", "C"),                  // root
+                ("E4 G4 C5", "C/E"),                // first inversion
+                ("G3 C4 E4", "C/G"),                // second inversion
+                ("C3 C4 E4 G4 C5", "C"),            // doubled root, two octaves
+                ("E2 G3 C4 E4 G4", "C/E"),          // wide, third in the bass
+                ("C2 E4 G4 Bb4 D5", "C9"),          // five notes, four octaves
+                ("F#3 C#4 G#4", "Gbsus2"),          // flats when no key says otherwise
+            ]
+            for (voicing, expected) in cases {
+                guard let notes = MIDINote.parseList(voicing) else {
+                    t.check(false, "could not parse \(voicing)"); continue
+                }
+                let chord = ChordDetector.detect(midiNotes: notes).first?.chord
+                t.equal(chord?.symbol(), expected, "\(voicing) is \(expected)")
+            }
+        }
+
+        t.test("moving a voicing up or down an octave does not rename it") {
+            guard let base = MIDINote.parseList("D4 F4 A4 C5") else {
+                t.check(false, "could not parse"); return
+            }
+            let name = ChordDetector.detect(midiNotes: base).first?.chord.symbol()
+            t.equal(name, "Dm7", "the reference voicing")
+            for shift in [-24, -12, 12, 24] {
+                let moved = base.map { $0 + shift }
+                t.equal(ChordDetector.detect(midiNotes: moved).first?.chord.symbol(), name,
+                        "still \(name ?? "?") \(shift / 12) octaves away")
+            }
+        }
+
+        t.test("a black key is named for its octave, and named in flats") {
+            // What the keyboard draws under your fingers. Walking down from D4
+            // must read Bb3, not A#3.
+            t.equal(MIDINote.name(62), "D4", "D4")
+            t.equal(MIDINote.name(60), "C4", "C4")
+            t.equal(NoteNaming.letters.name(PitchClass(58)) + "\(MIDINote.octave(58))",
+                    "Bb3", "the black key below C4 is Bb3, not A#3")
+        }
+
         t.test("preview data populates every surface the window renders") {
             // Exactly the four the window draws. It used to also check Roman
             // numerals and scale fits, which the window stopped drawing long
@@ -257,6 +303,39 @@ func runLiveSessionTests(_ t: Harness) {
     }
     func on(_ n: Int) -> MIDIMessage { .noteOn(note: n, velocity: 96, channel: 0) }
     func off(_ n: Int) -> MIDIMessage { .noteOff(note: n, channel: 0) }
+
+    t.suite("losing the keyboard") {
+        t.test("unplugging mid-chord leaves nothing lit and nothing named") {
+            let model = IslandModel()
+            let notes = MIDINote.parseList("C4 E4 G4")!
+            model.present(candidates: ChordDetector.detect(midiNotes: notes),
+                          heldNotes: notes, atMs: 0)
+            // A device pulled out sends no Note Offs. Panic is what the app has
+            // to fall back on, and it must leave the window in the empty state
+            // rather than with three keys lit under a chord nobody is playing.
+            model.clearChord()
+            t.check(model.heldNotes.isEmpty, "no keys lit")
+            t.check(model.chord == nil, "no chord named")
+            t.check(model.isEmpty, "the readout shows its dashes")
+        }
+
+        t.test("with no device the window says so rather than looking broken") {
+            let model = IslandModel()
+            t.equal(model.inputLabel, "no input", "a label from the first frame")
+            t.check(model.isEmpty, "and an empty readout, not a stale chord")
+        }
+
+        t.test("panic clears a chord left hanging by a lost Note Off") {
+            let session = LiveSession()
+            for note in [60, 64, 67] {
+                session.ingest(.noteOn(note: note, velocity: 100, channel: 0))
+            }
+            t.check(!session.held.sounding.isEmpty, "notes are held")
+            session.panic()
+            t.check(session.held.sounding.isEmpty, "panic releases every one")
+            t.check(session.candidates.isEmpty, "and names no chord")
+        }
+    }
 
     t.suite("live session") {
         t.test("lifting a chord does not name its leftovers") {

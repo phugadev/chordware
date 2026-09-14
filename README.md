@@ -2,9 +2,10 @@
 
 A virtual piano keyboard that tells you what you are playing.
 
-Play, and the window shows it: the chord in amber on black, and the keys under
-your fingers lit and named. Lift your hands and it goes back to black. That is
-the whole window. Put it
+Play, and the window shows it: the chord in amber on black, the keys under your
+fingers lit and named with their octave, and the last few chords along the foot.
+Lift your hands and the chord goes back to black; the history stays. Your MIDI
+device is in the title bar. That is the whole window. Put it
 on a second screen while you practise, or beside your hands while you record. It
 reads your MIDI keyboard **or any audio your Mac can hear**, so it works on a
 Logic bounce, a DJ deck, a YouTube video or a mic'd guitar just as well as on a
@@ -37,7 +38,9 @@ In the window:
   chord was tried, and it asks you to learn a legend before the display tells
   you anything.
 - **Correct spelling.** The seventh of `Ab7` is `Gb`, never `F#`. Chordware
-  tracks the key to get this right; it does not put the key on screen.
+  tracks the key to get this right; it does not put the key on screen. With no
+  key established yet, ties break towards flats — `F#3 C#4 G#4` is `Gbsus2`,
+  because in the keys people play in, the black notes are flats.
 - **Capture.** Everything you play is recorded from launch, saveable as a `.mid`
   at any point, so an idea found by accident is not lost.
 - **MIDI passthrough** through a virtual port named `Chordware`, off by

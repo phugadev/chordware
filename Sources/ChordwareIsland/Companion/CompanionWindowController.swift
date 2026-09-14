@@ -1,4 +1,5 @@
 import AppKit
+import Observation
 import QuartzCore
 import SwiftUI
 
@@ -15,8 +16,8 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     /// size. Content sizes, not frame sizes: the titlebar adds roughly thirty
     /// points on top, and treating one as the other clipped the keyboard off
     /// the bottom.
-    private static let defaultContent = NSSize(width: 900, height: 296)
-    private static let minimumContent = NSSize(width: 520, height: 236)
+    private static let defaultContent = NSSize(width: 900, height: 272)
+    private static let minimumContent = NSSize(width: 520, height: 212)
 
     /// The window frame, kept across launches. One owner, persisted -- AppKit's
     /// own autosave used to write the same thing from the other side and the
@@ -26,7 +27,7 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     /// six hundred points tall to fit it. A frame saved for that layout opens
     /// this one with a band of empty ground in it, so the old key is abandoned
     /// rather than migrated.
-    private static let companionFrameKey = "ChordwareWindowFrame4"
+    private static let companionFrameKey = "ChordwareWindowFrame5"
 
     private var storedCompanionFrame: NSRect? {
         get {
@@ -102,9 +103,31 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         }
 
         self.window = window
+        trackStatus()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         window.orderFrontRegardless()
+    }
+
+    /// The device, and the pedal, in the title bar.
+    ///
+    /// This was a strip of its own under the keyboard: twenty-four points of
+    /// window spent on one line of grey text that is only ever read when
+    /// something is wrong. A title bar is already there, already says what the
+    /// window is, and is exactly where a Mac app puts what it is looking at.
+    private var statusText: String {
+        model.sustainDown ? model.inputLabel + "  \u{00B7}  sustain" : model.inputLabel
+    }
+
+    /// Re-arms itself: an observation tracks one change and then stops, so
+    /// without this the subtitle would be correct exactly once.
+    private func trackStatus() {
+        guard let window else { return }
+        withObservationTracking {
+            window.subtitle = statusText
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.trackStatus() }
+        }
     }
 
     /// Ordered out, not released: the instance keeps the stored frame and the

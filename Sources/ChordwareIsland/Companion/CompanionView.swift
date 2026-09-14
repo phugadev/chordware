@@ -26,7 +26,6 @@ public struct CompanionView: View {
     /// is a photograph of a piano rather than a control you glance at, and it
     /// pushed the chord -- the part you actually read -- into a corner.
     private static let keyboardHeight: CGFloat = 88
-    private static let statusHeight: CGFloat = 24
 
     /// The chord is drawn to the panel it is in, so dragging the window short
     /// shrinks it instead of running it through the keyboard.
@@ -51,9 +50,10 @@ public struct CompanionView: View {
                 // shadow were three ways of saying "this is a piano" to
                 // something that already looks like one.
                 .frame(height: Self.keyboardHeight)
-                // Claim the keyboard's own clicks so it does not drag the window.
+                // Claim the keyboard's own clicks so it does not drag the
+                // window. The device name and the pedal live in the title bar;
+                // everything between the title bar and the keys is the readout.
                 .contentShape(Rectangle())
-            status
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(IslandTheme.background)
@@ -126,27 +126,4 @@ public struct CompanionView: View {
         .padding(.horizontal, 12)
     }
 
-    /// Not music, but the difference between "nothing is happening" and "the
-    /// app is broken". A stuck pedal is otherwise invisible and looks exactly
-    /// like the display refusing to let go of a chord.
-    private var status: some View {
-        HStack(spacing: 7) {
-            Circle()
-                .fill(isPlaying ? palette.live : IslandTheme.tertiary)
-                .frame(width: 5, height: 5)
-            Text(model.inputLabel)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(IslandTheme.tertiary)
-                .lineLimit(1)
-            if model.sustainDown {
-                Text("SUSTAIN")
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .tracking(0.5)
-                    .foregroundStyle(palette.chord)
-            }
-            Spacer(minLength: 0)
-        }
-        .frame(height: Self.statusHeight)
-        .padding(.horizontal, 12)
-    }
 }
