@@ -133,19 +133,16 @@ public struct MiniPiano: View {
                                              width: body.width - 1, height: 1)),
                                  with: .color(Color.white.opacity(0.34)))
                 } else {
-                    // Ivory, not paper. Warm whites put more distance between
-                    // the keys and the cool blues and violets that land on
-                    // them, and a piano key has never been blue-grey.
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color(red: 0.968, green: 0.962, blue: 0.944),
-                                          Color(red: 0.822, green: 0.812, blue: 0.788)]),
+                        Gradient(colors: [Color(red: 0.945, green: 0.950, blue: 0.960),
+                                          Color(red: 0.800, green: 0.810, blue: 0.830)]),
                         startPoint: CGPoint(x: body.midX, y: body.minY),
                         endPoint: CGPoint(x: body.midX, y: body.maxY)))
                     // The front lip: the face you actually see on an upright.
                     let lip = CGRect(x: body.minX, y: body.maxY - lipHeight,
                                      width: body.width, height: lipHeight)
                     context.fill(Path(roundedRect: lip, cornerRadius: radius),
-                                 with: .color(Color(red: 0.706, green: 0.696, blue: 0.672)))
+                                 with: .color(Color(red: 0.700, green: 0.712, blue: 0.735)))
                 }
                 // Hairline between keys instead of a gap.
                 context.stroke(path, with: .color(Color.black.opacity(0.35)), lineWidth: 0.5)
@@ -245,7 +242,7 @@ public struct MiniPiano: View {
                 let text = Text(label)
                     .font(.system(size: min(9, key.rect.width * 0.55),
                                   weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.black.opacity(0.38))
+                    .foregroundStyle(Color.black.opacity(0.42))
                 context.draw(text, at: CGPoint(x: key.rect.midX, y: size.height - 9),
                              anchor: .center)
             }
