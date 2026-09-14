@@ -55,13 +55,14 @@ public enum Theme {
     /// The keyboard is one hue at two lightnesses, because "a key is down" is
     /// one fact and "which kind of key" is a second one -- hue says the first,
     /// lightness says the second, and the lightness is picked for the key it
-    /// lands on rather than for taste. The chord is the complementary warm,
-    /// because it is the one thing on screen that is not a key.
+    /// lands on rather than for taste. The chord is yellow in all of them: it
+    /// is the one thing on screen that is not a key, and the brightest colour
+    /// on black belongs to the thing you look up at.
     ///
     /// Amber, green and violet before this was three unrelated hues doing three
     /// unrelated things, which is a palette by accident rather than on purpose.
     public static let emerald = Palette(
-        chord: Color(red: 1.00, green: 0.651, blue: 0.169),
+        chord: Color(red: 1.00, green: 0.831, blue: 0.200),
         whiteKey: Color(red: 0.055, green: 0.624, blue: 0.431),
         blackKey: Color(red: 0.431, green: 0.906, blue: 0.718),
         live: Color(red: 0.055, green: 0.624, blue: 0.431))
@@ -79,7 +80,7 @@ public enum Theme {
     /// violet is clearly darker than ivory, pink is clearly brighter than a
     /// black key.
     public static let orchid = Palette(
-        chord: Color(red: 1.00, green: 0.651, blue: 0.169),
+        chord: Color(red: 1.00, green: 0.831, blue: 0.200),
         whiteKey: Color(red: 0.443, green: 0.243, blue: 0.882),
         blackKey: Color(red: 0.937, green: 0.286, blue: 0.612),
         blackKeyLabel: .white,
@@ -87,7 +88,7 @@ public enum Theme {
 
     /// Cooler, and further from anything else that looks like this.
     public static let indigo = Palette(
-        chord: Color(red: 1.00, green: 0.667, blue: 0.231),
+        chord: Color(red: 1.00, green: 0.831, blue: 0.200),
         whiteKey: Color(red: 0.357, green: 0.294, blue: 0.839),
         blackKey: Color(red: 0.663, green: 0.612, blue: 1.00),
         live: Color(red: 0.357, green: 0.294, blue: 0.839))
