@@ -1,11 +1,12 @@
 # Chordware
 
-A harmonic analysis platform that lives in your Mac's notch.
+A virtual piano keyboard that tells you what you are playing.
 
-Play, and the notch tells you what you played — the chord, its inversion, the key
-you're in, and the Roman numeral. Hover, and it opens into the detail. It reads
-your MIDI keyboard **or any audio your Mac can hear**, so it works on a Logic
-bounce, a DJ deck, a YouTube video or a mic'd guitar just as well as on a
+Play, and the window shows it: the chord, its inversion, the key you're in, the
+Roman numeral, the notes under your fingers and the scales that fit. Put it on a
+second screen while you practise, or beside your hands while you record. It
+reads your MIDI keyboard **or any audio your Mac can hear**, so it works on a
+Logic bounce, a DJ deck, a YouTube video or a mic'd guitar just as well as on a
 controller.
 
 Free, MIT-licensed, no accounts, no telemetry, nothing leaves your machine.
@@ -27,7 +28,7 @@ So Chordware does audio as well as MIDI, and treats naming a chord as the
 
 ## What it does
 
-- **Live chord detection** from MIDI or audio, in the notch.
+- **Live chord detection** from MIDI or audio, on a keyboard you can watch.
 - **Ranked readings, not one answer.** `A C E G` is shown as `Am7` *and*
   `C6/A` with confidences, because which one is right depends on context the
   notes alone don't carry.
@@ -195,13 +196,13 @@ ChordwareCore     pure Swift music theory: pitch, chords, scales, analysis.
                   No system frameworks, no I/O. Everything else depends on it.
 ChordwareSignal   audio to chroma to chord, on Accelerate.
 ChordwareEngine   CoreMIDI, audio input, preview synth, LiveSession.
-ChordwareIsland   the notch window, its shape, geometry and state machine.
-ChordwareApp      the app; the only place the engine and the island meet.
+ChordwareIsland   the window: the keyboard, the readout and the menu bar item.
+ChordwareApp      the app; the only place the engine and the view meet.
 chordware         the CLI.
 ```
 
 Keeping the theory in a dependency-free target is what lets the same engine back
-the island, the CLI and the tests, and is why the suite runs without a window,
+the window, the CLI and the tests, and is why the suite runs without a window,
 a keyboard or an audio device.
 
 ## Tests
@@ -216,24 +217,29 @@ second copy of the suite that only Xcode users could execute, the tests run as
 an ordinary executable against a small built-in harness. The bar for running
 them is the same as the bar for building the app.
 
-The island's layout is reviewed by rendering it offscreen rather than by
-screenshotting a live window:
+The layout is reviewed by rendering it offscreen rather than by screenshotting
+a live window:
 
 ```bash
 ./.build/release/ChordwareApp --render /tmp/shots
 ```
 
 This needs no screen-recording permission and produces identical output on every
-run, including the expansion frozen part-way open.
+run, at every window height the layout has to survive.
 
 ## Status
 
-Working: the island, MIDI in, virtual MIDI out with passthrough, audio chord
+Working: the window, MIDI in, virtual MIDI out with passthrough, audio chord
 detection, key and Roman numeral analysis, progression capture, the CLI.
 
-Not yet: the next-chord engine behind the island's `Next` tab, the local HTTP
-API, and a settings window. Reharmonisation is deliberately out of scope — it
-serves composing rather than seeing what you play.
+Not yet: the local HTTP API and a settings window. Suggestion and
+reharmonisation are deliberately out of scope — they serve composing rather than
+seeing what you play.
+
+Gone: the notch overlay. It hung above the menu bar on the built-in screen, at a
+level above every other window, and its footprint swallowed clicks across the
+top of the display. It was also the wrong place for this: you cannot watch a
+keyboard that is above the screen you are looking at.
 
 ## Licence
 

@@ -3,23 +3,19 @@ import ChordwareEngine
 import ChordwareIsland
 import Foundation
 
-/// Connects the live input pipeline to what the island renders.
+/// Connects the live input pipeline to what the window renders.
 ///
-/// The engine knows nothing about the island and the island knows nothing about
-/// CoreMIDI; this is the only place the two meet, which keeps the island
-/// renderable from fixtures and the engine testable without a window.
+/// The engine knows nothing about the view and the view knows nothing about
+/// CoreMIDI; this is the only place the two meet, which keeps the window
+/// renderable from fixtures and the engine testable without one.
 @MainActor
 final class SessionBridge {
     let session = LiveSession()
     private let model: IslandModel
-    private let controller: IslandController
-    private var lastKey: Key?
-    private var lastCadenceIndex: Int?
     private let keyboardRange = KeyboardRange()
 
-    init(model: IslandModel, controller: IslandController) {
+    init(model: IslandModel) {
         self.model = model
-        self.controller = controller
         session.onUpdate = { [weak self] update in self?.apply(update) }
         session.onError = { [weak self] error in self?.report(error) }
         session.midiIn.onEndpointsChanged = { [weak self] _ in self?.refreshInputLabel() }
@@ -89,35 +85,11 @@ final class SessionBridge {
                       heldNotes: update.notes,
                       atMs: update.timeMs,
                       settled: update.isSettled)
-
-        announce(update)
     }
 
-    /// Surface the things worth interrupting for: a key change, and a cadence
-    /// as it lands.
-    private func announce(_ update: LiveSession.Update) {
-        if let key = update.key, key != lastKey {
-            if lastKey != nil, update.keyConfidence > 0.65 {
-                controller.toast(IslandToast(kind: .key, title: key.name, detail: "key change"))
-            }
-            lastKey = key
-        }
-
-        guard let key = update.key else { return }
-        let cadences = model.progression.cadences(in: key)
-        guard let last = cadences.last,
-              last.index == model.progression.count - 1,
-              last.index != lastCadenceIndex else { return }
-        lastCadenceIndex = last.index
-        controller.toast(IslandToast(kind: .cadence,
-                                     title: last.cadence.display,
-                                     detail: model.chord?.symbol()))
-    }
-
+    /// Say so in the one place that is always visible, rather than in a
+    /// notification that decays before you look up from the keys.
     private func report(_ error: Error) {
-        controller.toast(IslandToast(kind: .capture,
-                                     title: "input problem",
-                                     detail: "\(error)"),
-                         duration: 4)
+        model.inputLabel = "input problem: \(error)"
     }
 }

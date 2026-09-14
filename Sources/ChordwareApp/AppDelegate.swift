@@ -15,13 +15,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
-        // Accessory policy: no Dock icon, no menu bar item. The island is the app.
+        // Accessory policy: no Dock icon. Chordware sits beside a DAW and a
+        // screen recording; it has a status item and a window, and neither
+        // wants a bouncing icon in the Dock or a slot in Command-Tab.
         app.setActivationPolicy(.accessory)
         app.run()
     }
 
     private let model = IslandModel()
-    private var controller: IslandController?
     private var bridge: SessionBridge?
     private var demo: DemoDriver?
     private var companion: CompanionWindowController?
@@ -32,30 +33,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let arguments = CommandLine.arguments
 
-        // `--probe` reports what the island measured on the attached displays.
-        if arguments.contains("--probe") {
-            for screen in NSScreen.screens {
-                let g = ScreenGeometry(screen: screen)
-                let kind = g.isPhysical ? "physical notch" : "no notch (pill fallback)"
-                print("\(screen.localizedName): \(Int(g.screenFrame.width))x\(Int(g.screenFrame.height))"
-                      + "  \(kind)  notch \(Int(g.notchWidth))x\(Int(g.notchHeight))")
-                for state in [IslandState.idle, .glance, .expanded, .act] {
-                    let size = IslandRootView.size(for: state, geometry: g)
-                    print("    \(state)  \(Int(size.width))x\(Int(size.height))")
-                }
-            }
-            exit(0)
-        }
-
-        // `--render <dir>` writes every island state to PNG and exits, which is
-        // how the layout is reviewed without a live window.
+        // `--render <dir>` writes the window's layout to PNG and exits, which
+        // is how it is reviewed without anything on screen.
         if let index = arguments.firstIndex(of: "--render"), index + 1 < arguments.count {
             let directory = URL(fileURLWithPath: arguments[index + 1])
-            let geometry = ScreenGeometry.preferred
-                ?? ScreenGeometry(notchWidth: 200, notchHeight: 32, isPhysical: false,
-                                  screenFrame: CGRect(x: 0, y: 0, width: 1512, height: 982))
             do {
-                let written = try IslandRenderer.renderAll(to: directory, geometry: geometry)
+                let written = try IslandRenderer.renderAll(to: directory)
                 for url in written { print(url.path) }
             } catch {
                 FileHandle.standardError.write(Data("render failed: \(error)\n".utf8))
@@ -63,23 +46,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             exit(0)
         }
-
-        // `--virtual-notch` forces the fallback pill so the non-notched layout
-        // can be checked on a machine that has a notch.
-        var geometry = arguments.contains("--screen-main")
-            ? ScreenGeometry.main : ScreenGeometry.preferred
-        if arguments.contains("--virtual-notch"), let real = geometry {
-            geometry = ScreenGeometry(
-                notchWidth: ScreenGeometry.virtualNotchSize.width,
-                notchHeight: ScreenGeometry.virtualNotchSize.height,
-                isPhysical: false,
-                screenFrame: real.screenFrame
-            )
-        }
-
-        let controller = IslandController(model: model, geometry: geometry)
-        controller.start()
-        self.controller = controller
 
         let companion = CompanionWindowController(model: model)
         self.companion = companion
@@ -163,9 +129,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         modifiers: UInt32(cmdKey | optionKey | controlKey))
         companionHotKey = hotKey
 
-        // Cycles companion -> compact -> overlay -> companion, so all three are
-        // reachable without the menu bar, which can be unreachable behind the
-        // notch on a busy menu bar.
+        // Toggles between the two window sizes without going near the menu
+        // bar, which on a notched MacBook can be full.
         let modeHotKey = GlobalHotKey { [weak self] in
             guard let self else { return }
             let order = DisplayMode.allCases
@@ -178,26 +143,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                             modifiers: UInt32(cmdKey | optionKey | controlKey))
         presentationHotKeyRef = modeHotKey
 
-        if arguments.contains("--window") {
+        // The window is the app. It used to be optional because there was an
+        // island above the menu bar showing the chord; with that gone, starting
+        // hidden means launching Chordware puts nothing on screen at all.
+        // `--hidden` is for launching it ahead of a session without the window
+        // taking over the display.
+        if !arguments.contains("--hidden") {
             companion.show()
             companion.apply(mode: model.displayMode)
-        }
-
-        NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil, queue: .main
-        ) { _ in
-            Task { @MainActor in controller.screenChanged() }
         }
 
         // `--demo` replays a scripted progression, which is how the island is
         // tuned and screenshotted. Everything else runs on live input.
         if arguments.contains("--demo") {
-            let driver = DemoDriver(model: model, controller: controller)
+            let driver = DemoDriver(model: model)
             driver.start(stepping: arguments.contains("--step"))
             demo = driver
         } else if !arguments.contains("--no-input") {
-            let bridge = SessionBridge(model: model, controller: controller)
+            let bridge = SessionBridge(model: model)
             if arguments.contains("--audio") { bridge.session.source = .audio }
             if let index = arguments.firstIndex(of: "--audio-device"), index + 1 < arguments.count {
                 bridge.session.source = .audio
@@ -207,43 +170,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.bridge = bridge
         }
 
-        // `--animate` walks the states on a timer with the real spring, so the
-        // transition can be captured frame by frame without synthesising
-        // pointer events (which needs an accessibility permission the app
-        // itself does not require).
-        if arguments.contains("--animate") {
-            Task { @MainActor in
-                let walk: [IslandState] = [.glance, .expanded, .act, .expanded, .glance]
-                while !Task.isCancelled {
-                    for state in walk {
-                        controller.pinState(state)
-                        try? await Task.sleep(for: .milliseconds(1400))
-                    }
-                }
-            }
-        }
-
-        // `--state <name>` pins the island open so a given state can be
-        // screenshotted or inspected without chasing it with the pointer.
-        if let index = arguments.firstIndex(of: "--state"), index + 1 < arguments.count {
-            let name = arguments[index + 1]
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(600))
-                self.demo?.stop()
-                switch name {
-                case "idle": self.model.state = .idle
-                case "glance": self.model.state = .glance
-                case "expanded": self.model.state = .expanded
-                case "act": self.model.state = .act
-                case "toast":
-                    self.model.state = .toast(IslandToast(kind: .cadence,
-                                                          title: "authentic (V\u{2013}I)",
-                                                          detail: "G7 \u{2192} Cmaj7"))
-                default: break
-                }
-                controller.pinState(self.model.state)
-            }
-        }
     }
 
     /// Write everything played so far to a file the player chooses.
@@ -269,6 +195,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Release anything still sounding so a quit mid-chord cannot leave a
         // note hanging in the DAW.
         bridge?.stop()
-        controller?.stop()
     }
 }

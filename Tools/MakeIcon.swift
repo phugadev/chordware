@@ -6,8 +6,9 @@ import Foundation
 
 let output = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "Chordware.icns"
 
-/// The island silhouette, matching NotchShape: square at the top, rounded
-/// below, with inverse-rounded shoulders.
+/// A notch silhouette: square at the top, rounded below, with inverse-rounded
+/// shoulders. Kept as the icon's frame -- it is a distinctive Mac shape and the
+/// keyboard is drawn inside it -- though nothing in the app draws one any more.
 func notchPath(in rect: CGRect, topRadius: CGFloat, bottomRadius: CGFloat) -> NSBezierPath {
     let p = NSBezierPath()
     let t = topRadius, b = bottomRadius
