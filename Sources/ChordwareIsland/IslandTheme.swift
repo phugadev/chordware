@@ -1,9 +1,10 @@
 import ChordwareCore
 import SwiftUI
 
-/// The island is always dark, in both system themes, because on a notched Mac
-/// it has to blend into physically black hardware. The pill on a non-notched
-/// screen keeps the same palette so the two read as one product.
+/// Always dark, in both system themes. The window is mostly a piano, and a
+/// piano is a dark object with bright keys: invert that and the keys stop being
+/// the brightest thing on screen, which is the one rule the whole layout rests
+/// on.
 public enum IslandTheme {
     /// The ground. Not pure black: a window of #000 with #FFF text on it has
     /// no depth to build on, because every surface laid over it can only go
@@ -14,8 +15,12 @@ public enum IslandTheme {
     public static let surface = Color(red: 0.075, green: 0.081, blue: 0.094)
     /// Raised further, for the keybed the keys sit in.
     public static let surfaceHigh = Color(red: 0.105, green: 0.112, blue: 0.128)
-    /// Recessed, for the well under the header.
-    public static let well = Color(red: 0.028, green: 0.031, blue: 0.038)
+    /// Recessed, for the well the chord sits in.
+    ///
+    /// Drawn as a gradient down to `background` rather than as a flat band: a
+    /// flat one differs from the ground by too little to read as a recess and
+    /// by just enough to leave a visible seam across the window.
+    public static let well = Color(red: 0.019, green: 0.022, blue: 0.028)
 
     public static let primary = Color.white
     public static let secondary = Color.white.opacity(0.66)
@@ -25,7 +30,9 @@ public enum IslandTheme {
     /// a top rather than just an outline.
     public static let edgeLight = Color.white.opacity(0.07)
 
-    public static let accent = Color(red: 0.42, green: 0.78, blue: 1.0)
+    /// Also the fifth, so a keyboard with role colours off still reads as
+    /// pressed rather than as highlighted.
+    public static let accent = Color(red: 0.11, green: 0.49, blue: 0.90)
     /// Belongs to the key.
     public static let diatonic = Color(red: 0.55, green: 0.85, blue: 0.72)
     /// Borrowed, altered or otherwise from outside it.
@@ -34,29 +41,23 @@ public enum IslandTheme {
     /// Held keys are coloured by what the note is doing in the chord. Four
     /// colours is the most that stays readable at a glance; beyond that it is
     /// decoration rather than information.
+    ///
+    /// Saturated and dark, not pastel, and the same colour on a white key as on
+    /// a black one. There were two palettes here, a pale set for white keys and
+    /// a deep set for black ones, and both were wrong. A tint only reads as a
+    /// tint when there is something lighter beside it for it to be a tint of; a
+    /// pale orange key surrounded by white keys reads as a key that failed to
+    /// draw. What makes a white key look *pressed* is that it went darker than
+    /// its neighbours, which means the colour has to be darker than ivory --
+    /// and a colour dark enough for that is also bright enough to read against
+    /// a black key. One palette, one meaning per hue, wherever it lands.
     public static func roleColor(_ role: ChordToneRole?) -> Color {
         switch role {
-        case .root: return Color(red: 1.00, green: 0.72, blue: 0.35)      // the anchor
-        case .third: return Color(red: 0.47, green: 0.87, blue: 0.66)     // major or minor
+        case .root: return Color(red: 0.94, green: 0.53, blue: 0.07)      // the anchor
+        case .third: return Color(red: 0.07, green: 0.64, blue: 0.41)     // major or minor
         case .fifth: return accent
-        case .seventh, .tension: return Color(red: 0.79, green: 0.64, blue: 1.00)
+        case .seventh, .tension: return Color(red: 0.49, green: 0.28, blue: 0.89)
         case nil: return accent
-        }
-    }
-
-    /// The same four roles, for a key that is itself dark.
-    ///
-    /// The pastels above are tints meant to sit on white. Put one on a black
-    /// key, between two more black keys, and it reads as washed out rather than
-    /// as pressed: there is nothing lighter around it for it to be a tint of.
-    /// Same hue, more saturation, less brightness.
-    public static func roleColorOnBlack(_ role: ChordToneRole?) -> Color {
-        switch role {
-        case .root: return Color(red: 0.93, green: 0.55, blue: 0.10)
-        case .third: return Color(red: 0.20, green: 0.72, blue: 0.47)
-        case .fifth: return Color(red: 0.13, green: 0.56, blue: 0.90)
-        case .seventh, .tension: return Color(red: 0.58, green: 0.36, blue: 0.95)
-        case nil: return Color(red: 0.13, green: 0.56, blue: 0.90)
         }
     }
 

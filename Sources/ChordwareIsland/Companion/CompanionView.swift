@@ -45,21 +45,22 @@ public struct CompanionView: View {
             let compact = proxy.size.height < Self.panelThreshold
             VStack(spacing: 0) {
                 header(compact: compact)
-                keyboardView(height: keyboardHeight(in: proxy.size.height, compact: compact))
-                    .padding(compact ? 8 : 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .fill(IslandTheme.surfaceHigh)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(IslandTheme.edgeLight, lineWidth: 1)
-                            )
-                            .shadow(color: .black.opacity(0.55), radius: 10, y: 4)
-                    )
-                    .padding(.horizontal, compact ? 14 : 18)
-                    .padding(.vertical, compact ? 10 : 14)
+                // Dragged to a height between the two the toggle snaps to, the
+                // compact layout runs out of things to put under the keyboard
+                // before it runs out of window. Centred in what is left rather
+                // than dropped against the header, so the slack reads as margin
+                // instead of as the layout having stopped early.
+                if compact { Spacer(minLength: 0) }
+                keyboardCard(compact: compact)
+                if compact { Spacer(minLength: 0) }
                 if !compact {
-                    detail(height: Self.panelHeight(in: proxy.size.height))
+                    // Second claim on the space, and it only ever asks for what
+                    // its rows need.
+                    detail(rows: Self.scaleRows(inWindow: proxy.size.height))
+                        .layoutPriority(2)
+                    // Only reached once the keyboard has hit its cap, which
+                    // takes a window taller than anyone opens by accident.
+                    Spacer(minLength: 0)
                     footer
                 }
             }
@@ -72,17 +73,43 @@ public struct CompanionView: View {
         .animation(.easeOut(duration: 0.13), value: model.chord?.symbol())
     }
 
-    /// With the panel gone the keyboard takes the room it leaves, within
-    /// bounds: unbounded it becomes a row of slabs, fixed it leaves a band of
-    /// black under it at most window sizes.
-    private func keyboardHeight(in available: CGFloat, compact: Bool) -> CGFloat {
-        guard compact else { return 132 }
-        let used = Self.headerHeight(compact: true) + 20 + 8 + 1 + 24
-        // Capped: a 49-key keyboard across 900 points has keys about 18 wide,
-        // and past roughly ten times that they stop reading as piano keys and
-        // start reading as slabs. A window between the two useful sizes keeps
-        // some black under the keyboard, which is the lesser fault.
-        return min(max(100, available - used), 200)
+    /// The keyboard takes every point the header, the panel and the footer do
+    /// not need, between bounds.
+    ///
+    /// It used to be pinned at 132 points with the panel given the remainder,
+    /// and the panel could not use it: it lists at most six scales, so past a
+    /// certain window height it was a card with ninety points of nothing under
+    /// the last row -- while the instrument the app is *for* was drawn at half
+    /// the height it could have been. Priority, not arithmetic: the panel asks
+    /// for what its rows need and the keyboard is handed the rest, so there is
+    /// no measurement here to get wrong.
+    ///
+    /// The cap is a proportion, not a taste. A white key is about 23mm by
+    /// 145mm, so past roughly six and a half times its own width it stops
+    /// looking like a piano key and starts looking like a slab.
+    private static let keyboardCap: CGFloat = 264
+    private static let compactKeyboardCap: CGFloat = 236
+
+    private func keyboardCard(compact: Bool) -> some View {
+        keyboardView()
+            .padding(compact ? 8 : 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(IslandTheme.surfaceHigh)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(IslandTheme.edgeLight, lineWidth: 1)
+                    )
+                    .shadow(color: .black.opacity(0.55), radius: 10, y: 4)
+            )
+            .padding(.horizontal, compact ? 14 : 18)
+            .padding(.vertical, compact ? 10 : 14)
+            // A floor as well as a cap: squeezed to nothing by a panel that
+            // wanted more than the window had, the keyboard would vanish and
+            // take the point of the window with it.
+            .frame(minHeight: compact ? 136 : 158,
+                   maxHeight: compact ? Self.compactKeyboardCap : Self.keyboardCap)
+            .layoutPriority(1)
     }
 
     /// A grid, not two columns of whatever height they happen to be.
@@ -141,7 +168,13 @@ public struct CompanionView: View {
         .padding(.top, compact ? 14 : 18)
         .padding(.bottom, compact ? 8 : 14)
         .frame(maxWidth: .infinity)
-        .background(IslandTheme.well)
+        // A gradient, not a band. Flat, the well sat a few percent off the
+        // ground: too little to read as a recess and just enough to leave a
+        // hard horizontal seam across the window under the chord name.
+        .background(
+            LinearGradient(colors: [IslandTheme.well, IslandTheme.background],
+                           startPoint: .top, endPoint: .bottom)
+        )
     }
 
     /// What the Roman numeral means, and the key it means it in, on one line.
@@ -187,7 +220,7 @@ public struct CompanionView: View {
     }
 
 
-    private func keyboardView(height: CGFloat) -> some View {
+    private func keyboardView() -> some View {
         MiniPiano(heldNotes: model.heldNotes,
                   lowNote: model.keyboardLowNote,
                   octaves: model.keyboardOctaves,
@@ -198,7 +231,6 @@ public struct CompanionView: View {
                   naming: model.naming,
                   key: model.key,
                   usesRoleColors: model.roleColors)
-            .frame(height: height)
             // Claim the keyboard's own clicks so it does not drag the window.
             // Grabbing a piano and having the window move is wrong, and the
             // keys are the one part of this view that will want clicks of its
@@ -206,33 +238,28 @@ public struct CompanionView: View {
             .contentShape(Rectangle())
     }
 
-    /// What is left after the header, the keyboard and the footer have taken
-    /// theirs. Reserving a fixed block instead made the panel overflow the
-    /// moment its contents needed more than the block -- five scales did -- and
-    /// the overflow drew straight through the footer.
+    /// How many scales to list. Six is all the chord-to-scale map returns.
     ///
-    /// This changes with the window, never with what is played, so nothing
-    /// moves while you are playing.
-    private static func panelHeight(in available: CGFloat) -> CGFloat {
-        max(120, available - (96 + 18 + 14) - 1 - (132 + 36) - 1 - 41)
+    /// This used to be a function of the panel's own height, back when the
+    /// panel was handed whatever the keyboard did not want. It is the other way
+    /// round now, so the question is how much window there is.
+    private static func scaleRows(inWindow height: CGFloat) -> Int {
+        height >= 640 ? 6 : 5
     }
 
-    /// How many scales fit in the room the panel actually has.
-    ///
-    /// A scale row is a name over its notes: measured, 35 points. Guessing 29
-    /// put a fifth row half through the footer rule.
-    private static func scaleRows(forPanel height: CGFloat) -> Int {
-        max(2, min(5, Int((height - 36 - 18) / 35)))
-    }
-
-    private func detail(height: CGFloat) -> some View {
-        Group {
-            if model.isEmpty { emptyPanel } else { columns(height: height) }
+    private func detail(rows: Int) -> some View {
+        // One height in every state. The rows below each hold their own, so
+        // the panel is the same size whether the chord fits six scales or two
+        // -- otherwise the panel shrinks, the keyboard grows to fill what it
+        // gave up, and the instrument changes size under your hands as you
+        // play, which is the one thing this layout is not allowed to do.
+        ZStack {
+            columns(rows: rows).opacity(model.isEmpty ? 0 : 1)
+            if model.isEmpty { emptyMessage }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: height, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(IslandTheme.surface)
@@ -245,18 +272,20 @@ public struct CompanionView: View {
         .clipped()
     }
 
-    /// One sentence saying what this space is for, rather than two column
+    /// One sentence saying what this space is for, rather than three row
     /// headings standing over nothing.
-    private var emptyPanel: some View {
-        VStack {
-            Spacer(minLength: 0)
-            Text("play a chord to see its notes and the scales that fit")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(IslandTheme.tertiary)
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity)
+    private var emptyMessage: some View {
+        Text("play a chord to see its notes and the scales that fit")
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .foregroundStyle(IslandTheme.tertiary)
+            .frame(maxWidth: .infinity)
     }
+
+    /// Measured against the type they hold, and fixed, so no row can change
+    /// the panel's height by having more or less to say.
+    private static let notesRowHeight: CGFloat = 20
+    private static let scaleRowHeight: CGFloat = 16
+    private static let recentRowHeight: CGFloat = 24
 
     /// Rows, not columns.
     ///
@@ -264,12 +293,11 @@ public struct CompanionView: View {
     /// of air around it, and the notes needed six rows to say what fits on one.
     /// A label and its content on a line reads faster and leaves the space for
     /// the thing that actually needs it -- the scales.
-    private func columns(height: CGFloat) -> some View {
+    private func columns(rows: Int) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             notesRow
-            scalesBlock(height: height)
+            scalesBlock(rows: rows)
             recentRow
-            Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -311,6 +339,7 @@ public struct CompanionView: View {
             }
         }
         .lineLimit(1)
+        .frame(height: Self.notesRowHeight)
     }
 
     private static func inversionName(_ inversion: Int) -> String {
@@ -320,33 +349,36 @@ public struct CompanionView: View {
     }
 
     /// The scales, each one a name and its notes on the same line.
-    private func scalesBlock(height: CGFloat) -> some View {
+    private func scalesBlock(rows: Int) -> some View {
         HStack(alignment: .top, spacing: 10) {
             rowLabel("SCALES")
             VStack(alignment: .leading, spacing: 5) {
                 let fits = model.scaleFits
-                if fits.isEmpty {
-                    Text("\u{2014}")
-                        .font(.system(size: 11, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
-                }
-                ForEach(Array(fits.prefix(Self.scaleRows(forPanel: height)).enumerated()),
-                        id: \.offset) { _, fit in
+                // Always `rows` rows, filled or not. A chord that fits two
+                // scales must leave the panel the same height as one that fits
+                // six, or the keyboard above moves every time you change chord.
+                ForEach(0..<rows, id: \.self) { index in
                     HStack(spacing: 10) {
-                        // A scale's root is a note, so it is written the way
-                        // every other note on screen is written. Hard-coding
-                        // letters here put "D Minor Pentatonic" over "Re Fa Sol
-                        // La Do" -- the same root spelled two ways on one line.
-                        Text("\(model.naming.name(fit.root, in: model.key, unicode: true)) \(fit.scale.name)")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(IslandTheme.primary)
-                            .frame(width: 190, alignment: .leading)
-                        Text(fit.scale.spelled(root: fit.root, naming: model.naming, key: model.key)
-                            .joined(separator: " "))
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(IslandTheme.tertiary)
+                        if index < fits.count {
+                            let fit = fits[index]
+                            // A scale's root is a note, so it is written the
+                            // way every other note on screen is written.
+                            // Hard-coding letters here put "D Minor
+                            // Pentatonic" over "Re Fa Sol La Do" -- the same
+                            // root spelled two ways on one line.
+                            Text("\(model.naming.name(fit.root, in: model.key, unicode: true)) \(fit.scale.name)")
+                                .font(.system(size: 12, weight: .medium, design: .rounded))
+                                .foregroundStyle(IslandTheme.primary)
+                                .frame(width: 190, alignment: .leading)
+                            Text(fit.scale.spelled(root: fit.root, naming: model.naming,
+                                                   key: model.key).joined(separator: " "))
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(IslandTheme.tertiary)
+                        }
+                        Spacer(minLength: 0)
                     }
                     .lineLimit(1)
+                    .frame(height: Self.scaleRowHeight)
                 }
             }
             Spacer(minLength: 0)
@@ -362,6 +394,7 @@ public struct CompanionView: View {
                 .frame(maxWidth: 520, alignment: .leading)
             Spacer(minLength: 0)
         }
+        .frame(height: Self.recentRowHeight)
     }
 
     private func rowLabel(_ text: String) -> some View {

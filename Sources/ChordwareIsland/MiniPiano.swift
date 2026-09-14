@@ -80,15 +80,15 @@ public struct MiniPiano: View {
             // annotation: in F major every B natural went dark, which looks
             // exactly like a rendering fault sitting next to every C. Scale
             // membership is a dot instead, which is clearly deliberate.
-            func heldColor(_ note: Int, onBlack: Bool = false) -> Color {
+            func heldColor(_ note: Int) -> Color {
                 let role = chord?.role(of: PitchClass(note))
-                let base = usesRoleColors
-                    ? (onBlack ? IslandTheme.roleColorOnBlack(role) : IslandTheme.roleColor(role))
-                    : (onBlack ? IslandTheme.roleColorOnBlack(nil) : IslandTheme.accent)
+                let base = IslandTheme.roleColor(usesRoleColors ? role : nil)
                 guard let velocity = velocities[note] else { return base }
-                // Never below half: a softly played note must still read as
-                // clearly pressed, not as a key that failed to draw.
-                let strength = 0.55 + 0.45 * (Double(velocity) / 127.0)
+                // Never below three-quarters. Velocity is a nuance on top of
+                // "this key is down"; fading the colour towards the key
+                // underneath makes a softly played note look like one that
+                // failed to draw, which is the more expensive mistake.
+                let strength = 0.78 + 0.22 * (Double(velocity) / 127.0)
                 return base.opacity(min(1, strength))
             }
 
@@ -102,20 +102,6 @@ public struct MiniPiano: View {
             context.fill(Path(CGRect(x: 0, y: 0, width: size.width, height: size.height)),
                          with: .color(IslandTheme.surfaceHigh))
 
-            // A struck key throws light onto what is around it. This is the
-            // single thing that separates a keyboard that is being played from
-            // a diagram of one, and it is drawn under every key so the glow
-            // spills between them rather than sitting on top.
-            for key in layout.keys where held.contains(key.note) {
-                let colour = heldColor(key.note, onBlack: key.isBlack)
-                let spread = key.rect.width * 1.6
-                let bloom = key.rect.insetBy(dx: -spread, dy: -spread * 0.35)
-                context.fill(Path(ellipseIn: bloom), with: .radialGradient(
-                    Gradient(colors: [colour.opacity(0.30), colour.opacity(0.0)]),
-                    center: CGPoint(x: bloom.midX, y: bloom.midY),
-                    startRadius: 0, endRadius: max(bloom.width, bloom.height) / 2))
-            }
-
             for key in layout.whiteKeys {
                 let rect = key.rect.insetBy(dx: 0.5, dy: 0)
                 let pressed = held.contains(key.note)
@@ -128,23 +114,38 @@ public struct MiniPiano: View {
 
                 if pressed {
                     context.fill(path, with: .color(heldColor(key.note)))
-                    // Darker where the finger is, so the key looks depressed
-                    // rather than merely coloured in.
+                    // Deep in shadow at the back, where the finger is, opening
+                    // out towards the front. A flat fill of the same colour
+                    // reads as coloured paper laid on the key rather than as
+                    // the key itself going down.
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color.black.opacity(0.22), .clear]),
+                        Gradient(colors: [Color.black.opacity(0.42), .clear]),
                         startPoint: CGPoint(x: body.midX, y: body.minY),
-                        endPoint: CGPoint(x: body.midX, y: body.minY + body.height * 0.45)))
+                        endPoint: CGPoint(x: body.midX, y: body.minY + body.height * 0.62)))
+                    // The front face, in shadow because the key has tipped
+                    // away, with the bevel above it catching the light. Two
+                    // lines is all it takes for a rectangle to have a front.
+                    let lip = CGRect(x: body.minX, y: body.maxY - lipHeight,
+                                     width: body.width, height: lipHeight)
+                    context.fill(Path(roundedRect: lip, cornerRadius: radius),
+                                 with: .color(Color.black.opacity(0.34)))
+                    context.fill(Path(CGRect(x: body.minX + 0.5, y: lip.minY - 1,
+                                             width: body.width - 1, height: 1)),
+                                 with: .color(Color.white.opacity(0.34)))
                 } else {
+                    // Ivory, not paper. Warm whites put more distance between
+                    // the keys and the cool blues and violets that land on
+                    // them, and a piano key has never been blue-grey.
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color(red: 0.945, green: 0.950, blue: 0.960),
-                                          Color(red: 0.800, green: 0.810, blue: 0.830)]),
+                        Gradient(colors: [Color(red: 0.968, green: 0.962, blue: 0.944),
+                                          Color(red: 0.822, green: 0.812, blue: 0.788)]),
                         startPoint: CGPoint(x: body.midX, y: body.minY),
                         endPoint: CGPoint(x: body.midX, y: body.maxY)))
                     // The front lip: the face you actually see on an upright.
                     let lip = CGRect(x: body.minX, y: body.maxY - lipHeight,
                                      width: body.width, height: lipHeight)
                     context.fill(Path(roundedRect: lip, cornerRadius: radius),
-                                 with: .color(Color(red: 0.700, green: 0.712, blue: 0.735)))
+                                 with: .color(Color(red: 0.706, green: 0.696, blue: 0.672)))
                 }
                 // Hairline between keys instead of a gap.
                 context.stroke(path, with: .color(Color.black.opacity(0.35)), lineWidth: 0.5)
@@ -165,11 +166,17 @@ public struct MiniPiano: View {
                              with: .color(Color.black.opacity(0.30)))
 
                 if pressed {
-                    context.fill(path, with: .color(heldColor(key.note, onBlack: true)))
+                    context.fill(path, with: .color(heldColor(key.note)))
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color.black.opacity(0.20), .clear]),
+                        Gradient(colors: [Color.black.opacity(0.38), .clear]),
                         startPoint: CGPoint(x: body.midX, y: body.minY),
                         endPoint: CGPoint(x: body.midX, y: body.midY)))
+                    // The same lit bevel the unpressed keys have, so a pressed
+                    // black key is still recognisably one of them.
+                    let cap = CGRect(x: body.minX + 1, y: body.maxY - body.height * 0.09,
+                                     width: body.width - 2, height: body.height * 0.06)
+                    context.fill(Path(roundedRect: cap, cornerRadius: 1),
+                                 with: .color(Color.white.opacity(0.30)))
                 } else {
                     context.fill(path, with: .linearGradient(
                         Gradient(colors: [Color(red: 0.175, green: 0.182, blue: 0.205),
@@ -184,6 +191,27 @@ public struct MiniPiano: View {
                 }
             }
 
+            // A struck key throws light onto what is around it, and that is
+            // the single thing separating a keyboard being played from a
+            // diagram of one.
+            //
+            // A blurred copy of the key's own shape, not a big soft ellipse
+            // centred on it. The ellipse version spread light across two keys
+            // either side and, added onto white keys that are already near the
+            // top of the range, came out as a milky smear rather than as glow.
+            // Light that hugs the edge it is coming off is the whole effect;
+            // past about a key's width it is haze.
+            context.drawLayer { glow in
+                glow.blendMode = .plusLighter
+                glow.addFilter(.blur(radius: 5))
+                for key in layout.keys where held.contains(key.note) {
+                    let colour = heldColor(key.note)
+                    glow.fill(Path(roundedRect: key.rect.insetBy(dx: -0.5, dy: -0.5),
+                                   cornerRadius: radius),
+                              with: .color(colour.opacity(0.22)))
+                }
+            }
+
             let whiteWidth = layout.whiteKeys.first?.rect.width ?? 0
 
             if namesHeldNotes, whiteWidth >= 11 {
@@ -193,10 +221,13 @@ public struct MiniPiano: View {
                     let spelling = chord?.spellingByPitchClass[PitchClass(key.note).value]
                     let name = spelling.map { naming.name($0, in: self.key, unicode: true) }
                         ?? naming.name(PitchClass(key.note), in: self.key, unicode: true)
+                    // White on every held key. It used to be black on the
+                    // white ones, which was right when they were pale and is
+                    // unreadable now they are not.
                     let text = Text(name)
                         .font(.system(size: min(11, whiteWidth * 0.7),
                                       weight: .bold, design: .rounded))
-                        .foregroundStyle(key.isBlack ? Color.white : Color.black.opacity(0.75))
+                        .foregroundStyle(Color.white)
                     let y = key.isBlack ? key.rect.maxY - 10 : size.height - 10
                     context.draw(text, at: CGPoint(x: key.rect.midX, y: y), anchor: .center)
                 }
@@ -214,7 +245,7 @@ public struct MiniPiano: View {
                 let text = Text(label)
                     .font(.system(size: min(9, key.rect.width * 0.55),
                                   weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.black.opacity(0.42))
+                    .foregroundStyle(Color.black.opacity(0.38))
                 context.draw(text, at: CGPoint(x: key.rect.midX, y: size.height - 9),
                              anchor: .center)
             }
