@@ -43,6 +43,9 @@ In the window:
   because in the keys people play in, the black notes are flats.
 - **Capture.** Everything you play is recorded from launch, saveable as a `.mid`
   at any point, so an idea found by accident is not lost.
+- **A history strip** of the last few chords, along the foot. Click one and it
+  goes up on the keyboard, with the notes you actually played; play anything and
+  it lets go.
 - **MIDI passthrough** through a virtual port named `Chordware`, off by
   default — see below.
 

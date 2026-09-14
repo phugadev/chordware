@@ -3,11 +3,11 @@ import Observation
 import QuartzCore
 import SwiftUI
 
-/// Owns the companion window: a normal, resizable, movable window that can live
-/// on whichever display you are actually looking at.
+/// Owns Chordware's window: a normal, resizable, movable one that can live on
+/// whichever display you are actually looking at.
 @MainActor
-public final class CompanionWindowController: NSObject, NSWindowDelegate {
-    private let model: IslandModel
+public final class WindowController: NSObject, NSWindowDelegate {
+    private let model: AppModel
     private var window: NSWindow?
 
     private var isVisible: Bool { window?.isVisible ?? false }
@@ -27,25 +27,25 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     /// six hundred points tall to fit it. A frame saved for that layout opens
     /// this one with a band of empty ground in it, so the old key is abandoned
     /// rather than migrated.
-    private static let companionFrameKey = "ChordwareWindowFrame5"
+    private static let windowFrameKey = "ChordwareWindowFrame5"
 
-    private var storedCompanionFrame: NSRect? {
+    private var storedFrame: NSRect? {
         get {
-            guard let values = UserDefaults.standard.array(forKey: Self.companionFrameKey) as? [Double],
+            guard let values = UserDefaults.standard.array(forKey: Self.windowFrameKey) as? [Double],
                   values.count == 4 else { return nil }
             return NSRect(x: values[0], y: values[1], width: values[2], height: values[3])
         }
         set {
             guard let newValue else {
-                UserDefaults.standard.removeObject(forKey: Self.companionFrameKey)
+                UserDefaults.standard.removeObject(forKey: Self.windowFrameKey)
                 return
             }
             UserDefaults.standard.set([newValue.minX, newValue.minY, newValue.width, newValue.height],
-                                      forKey: Self.companionFrameKey)
+                                      forKey: Self.windowFrameKey)
         }
     }
 
-    public init(model: IslandModel) {
+    public init(model: AppModel) {
         self.model = model
         super.init()
     }
@@ -92,11 +92,11 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         window.backgroundColor = NSColor.black
         window.contentMinSize = Self.minimumContent
         window.delegate = self
-        window.contentView = NSHostingView(rootView: CompanionView(model: model))
+        window.contentView = NSHostingView(rootView: ChordwareView(model: model))
 
-        // Restore the companion frame we saved ourselves, never a compact one,
-        // and only if it is still usable and still on a connected screen.
-        if let saved = storedCompanionFrame, isUsable(saved) {
+        // Restore the frame we saved ourselves, and only if it is still usable
+        // and still on a connected screen.
+        if let saved = storedFrame, isUsable(saved) {
             window.setFrame(saved, display: false)
         } else {
             positionOnPreferredScreen(window)
@@ -141,8 +141,8 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         window?.level = onTop ? .floating : .normal
     }
 
-    /// A frame is usable if it is big enough for the companion layout and at
-    /// least partly on a screen that is still connected.
+    /// A frame is usable if it is big enough for the layout and at least
+    /// partly on a screen that is still connected.
     private func isUsable(_ frame: NSRect) -> Bool {
         guard frame.width >= Self.minimumContent.width,
               frame.height >= Self.minimumContent.height else { return false }
@@ -167,6 +167,6 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
 
     public func windowDidEndLiveResize(_ notification: Notification) {
         guard let window else { return }
-        storedCompanionFrame = window.frame
+        storedFrame = window.frame
     }
 }

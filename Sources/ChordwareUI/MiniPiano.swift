@@ -23,7 +23,7 @@ public struct MiniPiano: View {
     /// Only for spelling the labels: Bb and A# are the same key and not the
     /// same note. Nothing here is coloured by what a note is doing.
     public var chord: Chord?
-    public var palette: IslandTheme.Palette
+    public var palette: Theme.Palette
 
     /// C2 to C6, which covers where chords are actually voiced.
     private static let defaultLow = 36
@@ -40,7 +40,7 @@ public struct MiniPiano: View {
                 namesHeldNotes: Bool = false,
                 chord: Chord? = nil,
                 key: Key? = nil,
-                palette: IslandTheme.Palette = IslandTheme.standard,
+                palette: Theme.Palette = Theme.standard,
                 maxWhiteWidth: CGFloat = PianoLayout.maxWhiteWidth) {
         self.heldNotes = heldNotes
         self.key = key
@@ -66,7 +66,7 @@ public struct MiniPiano: View {
             let radius: CGFloat = 2
 
             context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .color(IslandTheme.surfaceHigh))
+                         with: .color(Theme.surfaceHigh))
 
             // A held key is filled, and that is the whole of it.
             //

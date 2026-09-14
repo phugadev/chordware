@@ -5,7 +5,7 @@ import Observation
 /// Everything the window renders. A single observable object so the live
 /// pipeline, the fake-data driver and the eventual API all push into one place.
 @Observable
-public final class IslandModel {
+public final class AppModel {
     /// The current reading, best first.
     public var candidates: [ChordCandidate] = []
     public var heldNotes: [Int] = []
@@ -156,6 +156,16 @@ public final class IslandModel {
         isSounding = false
         candidates = []
         progression.close(atMs: time)
+    }
+
+    /// Empty the strip along the foot of the window.
+    ///
+    /// Its own command rather than part of panic: panic is for notes stuck
+    /// down with nothing sounding, which is a fault, and clearing what you
+    /// played an hour ago is not.
+    public func clearHistory() {
+        inspecting = nil
+        progression.clear()
     }
 
     /// Forget the chord entirely, for an explicit reset.

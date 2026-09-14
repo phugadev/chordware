@@ -7,9 +7,9 @@ import Foundation
 /// without launching anything, which is how its layout is verified: rendering
 /// offscreen needs no screen-recording permission and gives the same result
 /// every run.
-public enum IslandPreviewData {
-    public static func model() -> IslandModel {
-        let model = IslandModel()
+public enum PreviewData {
+    public static func model() -> AppModel {
+        let model = AppModel()
         let key = Key(tonic: SpelledNote("C")!, mode: .major)
         model.key = key
         model.inputLabel = "MIDI"

@@ -146,8 +146,6 @@ public enum ScaleLibrary {
         all.filter { $0.category == category }
     }
 
-    public static var categories: [ScaleCategory] { ScaleCategory.allCases }
-
     /// Case-insensitive search over names and aliases, for the CLI and the
     /// scale browser's search field.
     public static func search(_ query: String) -> [Scale] {

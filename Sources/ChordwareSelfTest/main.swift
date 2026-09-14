@@ -15,7 +15,7 @@ func runAll() {
     runAnalysisTests(t)
     runPerformanceTests(t)
     runNamingTests(t)
-    runIslandTests(t)
+    runAppTests(t)
     runMIDITests(t)
     runMIDIRoutingTests(t)
     runLiveSessionTests(t)

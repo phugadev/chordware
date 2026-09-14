@@ -133,15 +133,6 @@ public struct Chord: Hashable, Sendable, CustomStringConvertible {
         }
     }
 
-    /// Re-spell the same sounding chord for a different key context.
-    public func respelled(in key: Key?) -> Chord {
-        let newRoot = Chord.bestRootSpelling(for: root.pitchClass, quality: quality, key: key)
-        let newBass = bass.map { b in
-            SpelledNote.natural(b.pitchClass, preferFlats: key?.preferFlats ?? (newRoot.alteration < 0))
-        }
-        return Chord(root: newRoot, quality: quality, bass: newBass)
-    }
-
     /// Choose between enharmonic root spellings (D♭ vs C♯) by asking which one
     /// spells the whole chord with fewer and simpler accidentals, with the key
     /// signature breaking ties.

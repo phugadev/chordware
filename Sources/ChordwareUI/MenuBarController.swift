@@ -9,30 +9,33 @@ import ChordwareCore
 @MainActor
 public final class MenuBarController: NSObject, NSMenuDelegate {
     public struct Actions {
-        public var openCompanion: () -> Void
+        public var toggleWindow: () -> Void
         public var toggleAlwaysOnTop: () -> Void
         public var exportPerformance: () -> Void
         public var chooseMIDI: () -> Void
         public var chooseAudio: () -> Void
         public var togglePassthrough: () -> Void
         public var panic: () -> Void
+        public var clearHistory: () -> Void
         public var setKeyboardSize: (KeyboardSize) -> Void
 
-        public init(openCompanion: @escaping () -> Void,
+        public init(toggleWindow: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
                     exportPerformance: @escaping () -> Void,
                     chooseMIDI: @escaping () -> Void,
                     chooseAudio: @escaping () -> Void,
                     togglePassthrough: @escaping () -> Void,
                     panic: @escaping () -> Void,
+                    clearHistory: @escaping () -> Void,
                     setKeyboardSize: @escaping (KeyboardSize) -> Void) {
-            self.openCompanion = openCompanion
+            self.toggleWindow = toggleWindow
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
             self.exportPerformance = exportPerformance
             self.chooseMIDI = chooseMIDI
             self.chooseAudio = chooseAudio
             self.togglePassthrough = togglePassthrough
             self.panic = panic
+            self.clearHistory = clearHistory
             self.setKeyboardSize = setKeyboardSize
         }
     }
@@ -44,6 +47,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentPassthrough: () -> Bool = { false }
     /// How many notes are waiting to be exported, for the menu title.
     public var currentPerformanceCount: () -> Int = { 0 }
+    /// How many chords are in the strip, so the item can say what it clears.
+    public var currentHistoryCount: () -> Int = { 0 }
     public var currentKeyboardSize: () -> KeyboardSize = { .default }
 
     private var statusItem: NSStatusItem?
@@ -87,7 +92,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
                                 keyEquivalent: "c")
         window.keyEquivalentModifierMask = [.command, .option, .control]
         window.target = self
-        window.representedObject = Box { [weak self] in self?.actions.openCompanion() }
+        window.representedObject = Box { [weak self] in self?.actions.toggleWindow() }
         menu.addItem(window)
         add(menu, "Keep Window on Top", key: "t", checked: currentAlwaysOnTop()) { [weak self] in
             self?.actions.toggleAlwaysOnTop()
@@ -139,6 +144,18 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         export.representedObject = Box { [weak self] in self?.actions.exportPerformance() }
         export.toolTip = "Everything played since Chordware started, as a .mid file."
         menu.addItem(export)
+
+        // The strip along the foot of the window grows for as long as the app
+        // is running, and nothing else empties it: panic is about notes stuck
+        // down, not about what you played an hour ago.
+        let chords = currentHistoryCount()
+        let clear = NSMenuItem(
+            title: chords > 0 ? "Clear History (\(chords) chords)" : "Clear History",
+            action: #selector(fire(_:)), keyEquivalent: "k")
+        clear.target = self
+        clear.isEnabled = chords > 0
+        clear.representedObject = Box { [weak self] in self?.actions.clearHistory() }
+        menu.addItem(clear)
 
         let panic = NSMenuItem(title: "Panic (All Notes Off)", action: #selector(fire(_:)),
                                keyEquivalent: ".")

@@ -9,7 +9,7 @@ import SwiftUI
 /// screen-recording permission, and is identical on every run — which a
 /// screenshot of a live animating window is not.
 @MainActor
-public enum IslandRenderer {
+public enum Renderer {
     /// Write every case worth looking at into `directory`.
     public static func renderAll(to directory: URL) throws -> [URL] {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -21,55 +21,55 @@ public enum IslandRenderer {
             }
         }
 
-        try shot("companion") { try renderCompanion(to: $0) }
-        try shot("companion-idle") { try renderCompanion(to: $0, sounding: false) }
+        try shot("window") { try render(to: $0) }
+        try shot("window-idle") { try render(to: $0, sounding: false) }
         // Nothing played yet: its own state, and the first thing anyone sees.
-        try shot("companion-empty") { try renderCompanion(to: $0, sounding: false, notes: []) }
+        try shot("window-empty") { try render(to: $0, sounding: false, notes: []) }
         // One key and two keys are not chords, but must still read out.
-        try shot("companion-single") { try renderCompanion(to: $0, notes: [62]) }
+        try shot("window-single") { try render(to: $0, notes: [62]) }
         // A single black key: the chord line and the caption under it have to
         // agree about Bb versus A#, and they did not.
-        try shot("companion-single-black") { try renderCompanion(to: $0, notes: [58]) }
-        try shot("companion-dyad") { try renderCompanion(to: $0, notes: [60, 67]) }
+        try shot("window-single-black") { try render(to: $0, notes: [58]) }
+        try shot("window-dyad") { try render(to: $0, notes: [60, 67]) }
         // A plain triad, which is what most of the colour work has to answer to.
-        try shot("companion-triad") { try renderCompanion(to: $0, notes: [62, 65, 69]) }
+        try shot("window-triad") { try render(to: $0, notes: [62, 65, 69]) }
 
         // Every height the window can be dragged to, from the smallest the
         // layout allows upward.
         for height in [400, 320, 272, 212] as [CGFloat] {
-            try shot("companion-h\(Int(height))") {
-                try renderCompanion(to: $0, size: CGSize(width: 900, height: height))
+            try shot("window-h\(Int(height))") {
+                try render(to: $0, size: CGSize(width: 900, height: height))
             }
         }
         // TRIAL: a chord clicked out of the history. Its keys light up and the
         // readout names it, until you play again.
-        try shot("trial-inspecting") { try renderCompanion(to: $0, inspectIndex: 3) }
+        try shot("trial-inspecting") { try render(to: $0, inspectIndex: 3) }
         // The palettes, side by side, on the voicing that tests them: three
         // white keys and one black, where the black one is the note you most
         // need to see.
-        for (name, palette) in [("orchid", IslandTheme.orchid),
-                                ("emerald", IslandTheme.emerald),
-                                ("indigo", IslandTheme.indigo),
-                                ("coral", IslandTheme.coral)] {
+        for (name, palette) in [("orchid", Theme.orchid),
+                                ("emerald", Theme.emerald),
+                                ("indigo", Theme.indigo),
+                                ("coral", Theme.coral)] {
             try shot("palette-\(name)") {
-                try renderCompanion(to: $0, notes: [62, 65, 69, 70], palette: palette)
+                try render(to: $0, notes: [62, 65, 69, 70], palette: palette)
             }
         }
         // Narrow, where the keys are at their smallest and the labels drop out.
-        try shot("companion-narrow") {
-            try renderCompanion(to: $0, size: CGSize(width: 520, height: 212))
+        try shot("window-narrow") {
+            try render(to: $0, size: CGSize(width: 520, height: 212))
         }
         return written
     }
 
     /// Render the window's contents at its default size.
-    public static func renderCompanion(to url: URL, sounding: Bool = true,
+    public static func render(to url: URL, sounding: Bool = true,
                                        notes: [Int]? = nil,
-                                       palette: IslandTheme.Palette = IslandTheme.standard,
+                                       palette: Theme.Palette = Theme.standard,
                                        inspectIndex: Int? = nil,
 
                                        size: CGSize = CGSize(width: 900, height: 272)) throws -> URL? {
-        let model = IslandPreviewData.model()
+        let model = PreviewData.model()
         model.isSounding = sounding
         if !sounding { model.heldNotes = [] }
         if let notes {
@@ -86,7 +86,7 @@ public enum IslandRenderer {
         // Clip like a window does: ImageRenderer otherwise sizes to the
         // content's real layout, so overflow escapes the frame and the
         // render stops resembling what is on screen.
-        let view = CompanionView(model: model, palette: palette)
+        let view = ChordwareView(model: model, palette: palette)
             .frame(width: size.width, height: size.height, alignment: .top)
             .clipped()
         let renderer = ImageRenderer(content: view)

@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 import UniformTypeIdentifiers
 import ChordwareCore
 import ChordwareEngine
-import ChordwareIsland
+import ChordwareUI
 
 /// Entry point. Uses `@main` rather than a `main.swift` so the whole launch
 /// path is main-actor isolated, which AppKit requires and top-level code in
@@ -22,10 +22,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.run()
     }
 
-    private let model = IslandModel()
+    private let model = AppModel()
     private var bridge: SessionBridge?
     private var demo: DemoDriver?
-    private var companion: CompanionWindowController?
+    private var windowController: WindowController?
     private var menuBar: MenuBarController?
     /// Held, or the Carbon handlers are torn down the moment these go out of
     /// scope and the shortcuts stop working.
@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let index = arguments.firstIndex(of: "--render"), index + 1 < arguments.count {
             let directory = URL(fileURLWithPath: arguments[index + 1])
             do {
-                let written = try IslandRenderer.renderAll(to: directory)
+                let written = try Renderer.renderAll(to: directory)
                 for url in written { print(url.path) }
             } catch {
                 FileHandle.standardError.write(Data("render failed: \(error)\n".utf8))
@@ -48,14 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             exit(0)
         }
 
-        let companion = CompanionWindowController(model: model)
-        self.companion = companion
+        let window = WindowController(model: model)
+        self.windowController = window
 
         // A background app with no Dock icon needs a status item, or there is
         // no way to open the window, change input, or even quit.
         let menuBar = MenuBarController(actions: .init(
-            openCompanion: { companion.isFrontmost ? companion.close() : companion.show() },
-            toggleAlwaysOnTop: { companion.setAlwaysOnTop(!companion.isAlwaysOnTop) },
+            toggleWindow: { window.isFrontmost ? window.close() : window.show() },
+            toggleAlwaysOnTop: { window.setAlwaysOnTop(!window.isAlwaysOnTop) },
             exportPerformance: { [weak self] in self?.exportPerformance() },
             chooseMIDI: { [weak self] in self?.bridge?.session.source = .midi },
             chooseAudio: { [weak self] in self?.bridge?.session.source = .audio },
@@ -68,12 +68,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.bridge?.session.panic()
                 self?.model.clearChord()
             },
+            clearHistory: { [weak self] in self?.model.clearHistory() },
             setKeyboardSize: { [weak self] size in self?.bridge?.setKeyboardSize(size) }
         ))
         menuBar.currentSourceIsAudio = { [weak self] in self?.bridge?.session.source == .audio }
-        menuBar.currentAlwaysOnTop = { companion.isAlwaysOnTop }
+        menuBar.currentAlwaysOnTop = { window.isAlwaysOnTop }
         menuBar.currentPassthrough = { [weak self] in self?.bridge?.session.midiOut.passthrough ?? false }
         menuBar.currentPerformanceCount = { [weak self] in self?.bridge?.session.recorder.count ?? 0 }
+        menuBar.currentHistoryCount = { [weak self] in self?.model.progression.count ?? 0 }
         menuBar.currentKeyboardSize = { [weak self] in self?.bridge?.keyboardSize ?? .default }
         menuBar.currentChordSummary = { [weak self] in self?.model.chord?.symbol() }
         menuBar.install()
@@ -88,9 +90,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let modifiers = UInt32(cmdKey | optionKey | controlKey)
         let shortcuts: [(Int, () -> Void)] = [
             // Show or hide the window.
-            (kVK_ANSI_C, { companion.isFrontmost ? companion.close() : companion.show() }),
+            (kVK_ANSI_C, { window.isFrontmost ? window.close() : window.show() }),
             // Keep it above the DAW, or stop.
-            (kVK_ANSI_T, { companion.setAlwaysOnTop(!companion.isAlwaysOnTop) }),
+            (kVK_ANSI_T, { window.setAlwaysOnTop(!window.isAlwaysOnTop) }),
             // Panic: for a Note Off that never arrived or a pedal that never
             // came up, both of which leave keys lit with nothing sounding.
             (kVK_ANSI_K, { [weak self] in
@@ -117,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // `--hidden` is for launching it ahead of a session without the window
         // taking over the display.
         if !arguments.contains("--hidden") {
-            companion.show()
+            window.show()
         }
 
         // `--demo` replays a scripted progression, which is how the island is

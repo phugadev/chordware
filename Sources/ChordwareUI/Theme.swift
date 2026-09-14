@@ -4,7 +4,7 @@ import SwiftUI
 /// Always dark, in both system themes. The window is a black readout and a
 /// keyboard: the keys have to be the brightest thing on screen, and what you
 /// are holding down has to be the only colour on it.
-public enum IslandTheme {
+public enum Theme {
     /// The window's ground. Not the chord panel -- that is pure black.
     public static let background = Color(red: 0.106, green: 0.110, blue: 0.118)
     /// The chord display. Actually black, so the panel reads as a readout

@@ -1,14 +1,14 @@
 import ChordwareCore
 import Foundation
 import ChordwareEngine
-import ChordwareIsland
+import ChordwareUI
 import CoreGraphics
 
 @MainActor
-func runIslandTests(_ t: Harness) {
+func runAppTests(_ t: Harness) {
     t.suite("Window model") {
         t.test("a new chord replaces the one on screen") {
-            let model = IslandModel()
+            let model = AppModel()
             let notes = MIDINote.parseList("C4 E4 G4")!
             model.present(candidates: ChordDetector.detect(midiNotes: notes),
                           heldNotes: notes, atMs: 0)
@@ -21,7 +21,7 @@ func runIslandTests(_ t: Harness) {
         }
 
         t.test("releasing every note empties the readout and closes the event") {
-            let model = IslandModel()
+            let model = AppModel()
             let notes = MIDINote.parseList("C4 E4 G4")!
             model.present(candidates: ChordDetector.detect(midiNotes: notes),
                           heldNotes: notes, atMs: 0)
@@ -87,7 +87,7 @@ func runIslandTests(_ t: Harness) {
             // numerals and scale fits, which the window stopped drawing long
             // before the model stopped computing them -- so the model went on
             // computing them for nobody, and the test went on guarding it.
-            let model = IslandPreviewData.model()
+            let model = PreviewData.model()
             t.check(model.chord != nil, "has a chord")
             t.check(!model.heldNotes.isEmpty, "has keys to light")
             t.check(model.key != nil, "has a key, for spelling")
@@ -306,7 +306,7 @@ func runLiveSessionTests(_ t: Harness) {
 
     t.suite("losing the keyboard") {
         t.test("unplugging mid-chord leaves nothing lit and nothing named") {
-            let model = IslandModel()
+            let model = AppModel()
             let notes = MIDINote.parseList("C4 E4 G4")!
             model.present(candidates: ChordDetector.detect(midiNotes: notes),
                           heldNotes: notes, atMs: 0)
@@ -320,7 +320,7 @@ func runLiveSessionTests(_ t: Harness) {
         }
 
         t.test("with no device the window says so rather than looking broken") {
-            let model = IslandModel()
+            let model = AppModel()
             t.equal(model.inputLabel, "no input", "a label from the first frame")
             t.check(model.isEmpty, "and an empty readout, not a stale chord")
         }

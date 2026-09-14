@@ -35,9 +35,9 @@ let package = Package(
         // The notch island: window, shape, screen geometry, state machine.
         // Kept separate from the app target so it can be driven by fake data.
         .target(
-            name: "ChordwareIsland",
+            name: "ChordwareUI",
             dependencies: ["ChordwareCore"],
-            path: "Sources/ChordwareIsland",
+            path: "Sources/ChordwareUI",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         // Named ChordwareApp, not Chordware: macOS filesystems are
@@ -46,7 +46,7 @@ let package = Package(
         // under the proper name.
         .executableTarget(
             name: "ChordwareApp",
-            dependencies: ["ChordwareCore", "ChordwareIsland", "ChordwareEngine"],
+            dependencies: ["ChordwareCore", "ChordwareUI", "ChordwareEngine"],
             path: "Sources/ChordwareApp",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -62,7 +62,7 @@ let package = Package(
         // who can build the app at all. See Sources/ChordwareSelfTest/Harness.swift.
         .executableTarget(
             name: "chordware-selftest",
-            dependencies: ["ChordwareCore", "ChordwareIsland", "ChordwareEngine", "ChordwareSignal"],
+            dependencies: ["ChordwareCore", "ChordwareUI", "ChordwareEngine", "ChordwareSignal"],
             path: "Sources/ChordwareSelfTest",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

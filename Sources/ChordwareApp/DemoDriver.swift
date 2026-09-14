@@ -1,13 +1,13 @@
 import AppKit
 import ChordwareCore
-import ChordwareIsland
+import ChordwareUI
 
 /// Feeds the window a scripted progression so the UI can be built and verified
 /// without a keyboard plugged in. Kept behind `--demo` for screenshots and
 /// tuning.
 @MainActor
 final class DemoDriver {
-    private let model: IslandModel
+    private let model: AppModel
     private var task: Task<Void, Never>?
     private var stepMonitor: Any?
     private var index = 0
@@ -25,7 +25,7 @@ final class DemoDriver {
         ("C3 E4 G4 B4 D5 A5", 3.0),
     ]
 
-    init(model: IslandModel) {
+    init(model: AppModel) {
         self.model = model
         model.inputLabel = "demo"
     }

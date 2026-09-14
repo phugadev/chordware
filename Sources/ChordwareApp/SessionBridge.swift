@@ -1,6 +1,6 @@
 import ChordwareCore
 import ChordwareEngine
-import ChordwareIsland
+import ChordwareUI
 import Foundation
 
 /// Connects the live input pipeline to what the window renders.
@@ -11,10 +11,10 @@ import Foundation
 @MainActor
 final class SessionBridge {
     let session = LiveSession()
-    private let model: IslandModel
+    private let model: AppModel
     private let keyboardRange = KeyboardRange()
 
-    init(model: IslandModel) {
+    init(model: AppModel) {
         self.model = model
         session.onUpdate = { [weak self] update in self?.apply(update) }
         session.onError = { [weak self] error in self?.report(error) }

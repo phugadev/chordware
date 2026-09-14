@@ -9,12 +9,12 @@ import SwiftUI
 /// is the thing you look up at, so it gets a panel of its own and most of the
 /// window; the keys are the thing you glance down at, so they are a strip along
 /// the bottom and no taller than they need to be to be read.
-public struct CompanionView: View {
-    @Bindable public var model: IslandModel
+public struct ChordwareView: View {
+    @Bindable public var model: AppModel
     /// Defaulted, so the window is one call and the alternatives are one
     /// argument.
-    public var palette: IslandTheme.Palette
-    public init(model: IslandModel, palette: IslandTheme.Palette = IslandTheme.standard) {
+    public var palette: Theme.Palette
+    public init(model: AppModel, palette: Theme.Palette = Theme.standard) {
         self.model = model
         self.palette = palette
     }
@@ -57,7 +57,7 @@ public struct CompanionView: View {
                 .contentShape(Rectangle())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(IslandTheme.background)
+        .background(Theme.background)
         .preferredColorScheme(.dark)
         // A chord change is a musical event, so let it read as one. Short
         // enough that it never lags behind the hands.
@@ -74,18 +74,18 @@ public struct CompanionView: View {
     private var readout: some View {
         GeometryReader { proxy in
             ZStack {
-                IslandTheme.panel
+                Theme.panel
                 VStack(spacing: 6) {
                     Text(model.displaySymbol)
                         .font(.system(size: Self.symbolSize(inPanel: proxy.size.height),
                                       weight: .semibold, design: .rounded))
-                        .foregroundStyle(isPlaying ? palette.chord : IslandTheme.tertiary)
+                        .foregroundStyle(isPlaying ? palette.chord : Theme.tertiary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.35)
                         .contentTransition(.numericText())
                     Text(model.displayDetail)
                         .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.secondary)
+                        .foregroundStyle(Theme.secondary)
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 24)
@@ -119,8 +119,8 @@ public struct CompanionView: View {
                 } label: {
                     Text(event.chord.symbol(naming: .letters, in: model.key, unicode: true))
                         .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(inspected ? IslandTheme.panel
-                                         : (latest ? palette.chord : IslandTheme.tertiary))
+                        .foregroundStyle(inspected ? Theme.panel
+                                         : (latest ? palette.chord : Theme.tertiary))
                         .lineLimit(1)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 3)
