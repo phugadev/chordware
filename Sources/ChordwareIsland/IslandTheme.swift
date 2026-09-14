@@ -14,7 +14,6 @@ public enum IslandTheme {
     /// The keybed the keys sit in.
     public static let surfaceHigh = Color(red: 0.145, green: 0.149, blue: 0.160)
 
-    public static let primary = Color.white
     public static let secondary = Color.white.opacity(0.60)
     public static let tertiary = Color.white.opacity(0.34)
 
@@ -67,6 +66,25 @@ public enum IslandTheme {
         blackKey: Color(red: 0.431, green: 0.906, blue: 0.718),
         live: Color(red: 0.055, green: 0.624, blue: 0.431))
 
+    /// Two hues rather than two lightnesses of one.
+    ///
+    /// Emerald's mint black keys were the right idea badly executed: a pale
+    /// tint of the same hue is the only way to stay lighter than a black key,
+    /// and pale next to an ivory white key is barely there. Put a Bb in a
+    /// Bbmaj7 -- D, F, A, Bb, three white keys and one black -- and the one you
+    /// most need to see is the faintest thing on the board.
+    ///
+    /// Two saturated hues instead, one per kind of key, both dark enough to
+    /// carry a white label and each unmistakable against what it sits on:
+    /// violet is clearly darker than ivory, pink is clearly brighter than a
+    /// black key.
+    public static let orchid = Palette(
+        chord: Color(red: 1.00, green: 0.651, blue: 0.169),
+        whiteKey: Color(red: 0.443, green: 0.243, blue: 0.882),
+        blackKey: Color(red: 0.937, green: 0.286, blue: 0.612),
+        blackKeyLabel: .white,
+        live: Color(red: 0.443, green: 0.243, blue: 0.882))
+
     /// Cooler, and further from anything else that looks like this.
     public static let indigo = Palette(
         chord: Color(red: 1.00, green: 0.667, blue: 0.231),
@@ -81,14 +99,7 @@ public enum IslandTheme {
         blackKey: Color(red: 1.00, green: 0.647, blue: 0.600),
         live: Color(red: 0.847, green: 0.286, blue: 0.286))
 
-    public static let standard = emerald
+    public static let standard = orchid
 
-    public static func chordFont(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .semibold, design: .rounded)
-    }
-
-    public static func labelFont(_ size: CGFloat) -> Font {
-        .system(size: size, weight: .medium, design: .rounded)
-    }
 
 }

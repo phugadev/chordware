@@ -37,13 +37,15 @@ func runIslandTests(_ t: Harness) {
         }
 
         t.test("preview data populates every surface the window renders") {
+            // Exactly the four the window draws. It used to also check Roman
+            // numerals and scale fits, which the window stopped drawing long
+            // before the model stopped computing them -- so the model went on
+            // computing them for nobody, and the test went on guarding it.
             let model = IslandPreviewData.model()
             t.check(model.chord != nil, "has a chord")
-            t.check(!model.alternatives.isEmpty, "has alternatives")
-            t.check(model.key != nil, "has a key")
-            t.check(model.romanNumeral != nil, "has a roman numeral")
-            t.check(!model.progression.isEmpty, "has a progression")
-            t.check(!model.scaleFits.isEmpty, "has scale suggestions")
+            t.check(!model.heldNotes.isEmpty, "has keys to light")
+            t.check(model.key != nil, "has a key, for spelling")
+            t.check(!model.progression.isEmpty, "has a history to show")
         }
     }
 }

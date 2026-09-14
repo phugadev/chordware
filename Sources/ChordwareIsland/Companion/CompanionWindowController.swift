@@ -9,7 +9,7 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     private let model: IslandModel
     private var window: NSWindow?
 
-    public var isVisible: Bool { window?.isVisible ?? false }
+    private var isVisible: Bool { window?.isVisible ?? false }
     public private(set) var isAlwaysOnTop = false
     /// Header, keyboard and the status line, at the keyboard's natural key
     /// size. Content sizes, not frame sizes: the titlebar adds roughly thirty
@@ -56,8 +56,6 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     /// visibility then *hides* it -- which is why bringing it up appeared to
     /// need two presses of the shortcut.
     public var isFrontmost: Bool { isVisible && NSApp.isActive }
-
-    public func toggle() { isFrontmost ? close() : show() }
 
     public func show() {
         if let window {
@@ -109,6 +107,8 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         window.orderFrontRegardless()
     }
 
+    /// Ordered out, not released: the instance keeps the stored frame and the
+    /// always-on-top setting across a close and reopen.
     public func close() {
         window?.orderOut(nil)
     }
@@ -124,11 +124,6 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
         guard frame.width >= Self.minimumContent.width,
               frame.height >= Self.minimumContent.height else { return false }
         return NSScreen.screens.contains { $0.visibleFrame.intersects(frame) }
-    }
-
-    /// Frame size that yields the requested content size, titlebar included.
-    private func frameSize(forContent content: NSSize, in window: NSWindow) -> NSSize {
-        window.frameRect(forContentRect: NSRect(origin: .zero, size: content)).size
     }
 
     /// Open on a screen without a notch when there is one.
@@ -150,10 +145,5 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     public func windowDidEndLiveResize(_ notification: Notification) {
         guard let window else { return }
         storedCompanionFrame = window.frame
-    }
-
-    public func windowWillClose(_ notification: Notification) {
-        // Keep the instance so the stored frame and the always-on-top setting
-        // survive a close and reopen.
     }
 }

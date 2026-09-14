@@ -76,19 +76,6 @@ public final class IslandModel {
     /// THAT FIT / -" -- shows the scaffolding rather than the app.
     public var isEmpty: Bool { chord == nil && heldNotes.isEmpty }
 
-    public var confidence: Double { candidates.first?.confidence ?? 0 }
-    public var alternatives: [ChordCandidate] { Array(candidates.dropFirst()) }
-
-    public var romanNumeral: RomanNumeral? {
-        guard let chord, let key else { return nil }
-        return RomanNumeralAnalyzer.analyze(chord, in: key)
-    }
-
-    /// Fitting scales for the current chord.
-    public var scaleFits: [(scale: Scale, root: SpelledNote, score: Double)] {
-        guard let chord else { return [] }
-        return ChordScaleMap.scales(for: chord, limit: 6)
-    }
 
     /// Show notes that do not form a nameable chord, so a single key still
     /// lights up and reads out.
