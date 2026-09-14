@@ -3,6 +3,7 @@ import Foundation
 import ChordwareEngine
 import ChordwareUI
 import CoreGraphics
+import CoreMIDI
 
 @MainActor
 func runAppTests(_ t: Harness) {
@@ -134,6 +135,37 @@ func runMIDITests(_ t: Harness) {
 func runMIDIRoutingTests(_ t: Harness) {
     func endpoint(_ id: Int32, _ name: String, control: Bool = false) -> MIDIEndpoint {
         MIDIEndpoint(id: id, name: name, manufacturer: "Test", isControlSurface: control)
+    }
+
+    t.suite("MIDI delivery") {
+        t.test("a delivery longer than one packet's storage is decoded whole") {
+            // CoreMIDI hands over a variable-length list. A MIDIEventPacket
+            // holds 64 words, and the version of this that copied the first
+            // packet to the stack and walked the copy read off the end of it as
+            // soon as the list outgrew that -- a segfault on the realtime
+            // thread, from nothing more exotic than a fast run of notes.
+            // Allocated, not a local: a MIDIEventList variable is one packet
+            // long, so building forty-nine packets in one would smash the
+            // stack before the code under test ever ran. CoreMIDI hands over a
+            // buffer sized for the whole list, and so does this.
+            let capacity = 4096
+            let raw = UnsafeMutableRawPointer.allocate(
+                byteCount: capacity, alignment: MemoryLayout<MIDIEventList>.alignment)
+            defer { raw.deallocate() }
+            let list = raw.assumingMemoryBound(to: MIDIEventList.self)
+            var packet = MIDIEventListInit(list, ._1_0)
+            let notes = Array(36...84)
+            for (index, note) in notes.enumerated() {
+                var word = UMP.encode(.noteOn(note: note, velocity: 90, channel: 0))
+                packet = MIDIEventListAdd(list, capacity, packet,
+                                          MIDITimeStamp(index), 1, &word)
+            }
+            t.equal(Int(list.pointee.numPackets), notes.count, "the list really does hold them all")
+            let decoded = MIDIInputEngine.decode(eventList: UnsafePointer(list))
+            t.equal(decoded.count, notes.count, "every packet decoded")
+            t.equal(decoded.first, .noteOn(note: 36, velocity: 90, channel: 0), "first note")
+            t.equal(decoded.last, .noteOn(note: 84, velocity: 90, channel: 0), "last note")
+        }
     }
 
     t.suite("MIDI routing") {

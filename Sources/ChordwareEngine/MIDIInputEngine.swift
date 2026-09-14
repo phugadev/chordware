@@ -58,6 +58,39 @@ public final class MIDIInputEngine {
 
     public init() {}
 
+    /// Decode every message in one delivery from CoreMIDI.
+    ///
+    /// Walked in place, deliberately. The obvious version copies
+    /// `pointee.packet` to the stack and walks that, which is correct only
+    /// while the whole list fits inside one MIDIEventPacket's storage -- 64
+    /// words. A list is variable-length and its later packets live past that,
+    /// so walking the copy reads off the end of it: a run of a couple of
+    /// octaves arriving in one delivery segfaulted the app on CoreMIDI's
+    /// realtime thread, with nothing on screen to say why.
+    /// `nonisolated` because CoreMIDI calls it on its realtime thread, which is
+    /// not the main actor and must not wait for it.
+    nonisolated public static func decode(eventList: UnsafePointer<MIDIEventList>) -> [MIDIMessage] {
+        guard let packetOffset = MemoryLayout<MIDIEventList>.offset(of: \.packet),
+              let wordsOffset = MemoryLayout<MIDIEventPacket>.offset(of: \.words)
+        else { return [] }
+
+        var messages: [MIDIMessage] = []
+        var packet = UnsafeRawPointer(eventList)
+            .advanced(by: packetOffset)
+            .assumingMemoryBound(to: MIDIEventPacket.self)
+        for _ in 0..<Int(eventList.pointee.numPackets) {
+            let wordCount = Int(packet.pointee.wordCount)
+            let words = UnsafeRawPointer(packet)
+                .advanced(by: wordsOffset)
+                .assumingMemoryBound(to: UInt32.self)
+            for index in 0..<wordCount {
+                if let message = UMP.decode(word: words[index]) { messages.append(message) }
+            }
+            packet = UnsafePointer(MIDIEventPacketNext(packet))
+        }
+        return messages
+    }
+
     /// Ports whose names mark them as control surfaces rather than instruments.
     ///
     /// An Arturia KeyLab exposes four ports, one of which is MCU/HUI. That port
@@ -86,24 +119,7 @@ public final class MIDIInputEngine {
         ) { [weak self] eventListPointer, sourceRefCon in
             let sourceUID = sourceRefCon?.assumingMemoryBound(to: Int32.self).pointee
             // Runs on CoreMIDI's realtime thread: decode here, deliver on main.
-            var messages: [MIDIMessage] = []
-            let list = eventListPointer.pointee
-            withUnsafePointer(to: list.packet) { firstPacket in
-                var packet = firstPacket
-                for _ in 0..<Int(list.numPackets) {
-                    let wordCount = Int(packet.pointee.wordCount)
-                    withUnsafePointer(to: packet.pointee.words) { wordsTuple in
-                        wordsTuple.withMemoryRebound(to: UInt32.self, capacity: wordCount) { words in
-                            for index in 0..<wordCount {
-                                if let message = UMP.decode(word: words[index]) {
-                                    messages.append(message)
-                                }
-                            }
-                        }
-                    }
-                    packet = UnsafePointer(MIDIEventPacketNext(packet))
-                }
-            }
+            let messages = MIDIInputEngine.decode(eventList: eventListPointer)
             guard !messages.isEmpty else { return }
             Task { @MainActor [weak self] in
                 guard let self else { return }
