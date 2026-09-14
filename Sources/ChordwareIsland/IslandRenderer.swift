@@ -27,6 +27,9 @@ public enum IslandRenderer {
         try shot("companion-empty") { try renderCompanion(to: $0, sounding: false, notes: []) }
         // One key and two keys are not chords, but must still read out.
         try shot("companion-single") { try renderCompanion(to: $0, notes: [62]) }
+        // A single black key: the chord line and the caption under it have to
+        // agree about Bb versus A#, and they did not.
+        try shot("companion-single-black") { try renderCompanion(to: $0, notes: [58]) }
         try shot("companion-dyad") { try renderCompanion(to: $0, notes: [60, 67]) }
         // A plain triad, which is what most of the colour work has to answer to.
         try shot("companion-triad") { try renderCompanion(to: $0, notes: [62, 65, 69]) }

@@ -69,11 +69,17 @@ public enum NoteNaming: String, Sendable, Hashable, CaseIterable, Codable {
         }
     }
 
-    /// A pitch class has no spelling of its own, so one is chosen from the key
-    /// -- and from flats when there is no key, because in the keys people play
-    /// in, the black notes are flats.
+    /// A pitch class has no spelling of its own, so one is chosen.
+    ///
+    /// Sharps only when the key actually asks for them. A key signature with no
+    /// accidentals -- C major, A minor -- has no preference to express, and
+    /// neither does having no key at all, so both fall back to flats: in the
+    /// keys people play in, the black notes are flats. This is the loose-note
+    /// spelling only. A chord still spells itself, so the third of A major is
+    /// C# whatever this says.
     public func name(_ pc: PitchClass, in key: Key? = nil, unicode: Bool = false) -> String {
-        let spelled = SpelledNote.natural(pc, preferFlats: key?.preferFlats ?? true)
+        let preferFlats = key.map { $0.fifths <= 0 } ?? true
+        let spelled = SpelledNote.natural(pc, preferFlats: preferFlats)
         return name(spelled, in: key, unicode: unicode)
     }
 

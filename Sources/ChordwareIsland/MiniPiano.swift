@@ -117,10 +117,14 @@ public struct MiniPiano: View {
                     // walking D - C - A#: in the keys people actually play in,
                     // the black notes are flats.
                     let pitchClass = PitchClass(key.note)
-                    let spelled = chord?.spellingByPitchClass[pitchClass.value]
-                        ?? SpelledNote.natural(pitchClass,
-                                               preferFlats: self.key?.preferFlats ?? true)
-                    let name = NoteNaming.letters.name(spelled, in: self.key, unicode: true)
+                    // The chord's own spelling wins when there is one, so a
+                    // label and the chord name cannot disagree. Otherwise the
+                    // pitch class is named the same way every loose note in the
+                    // app is named, which is the only way the keyboard and the
+                    // caption above it stay in step.
+                    let name = chord?.spellingByPitchClass[pitchClass.value]
+                        .map { NoteNaming.letters.name($0, in: self.key, unicode: true) }
+                        ?? NoteNaming.letters.name(pitchClass, in: self.key, unicode: true)
                     // With its octave: walking D4 down to C4 down to Bb3 is a
                     // different thing from playing three notes called D, C and
                     // Bb, and the keyboard is the only place that difference can

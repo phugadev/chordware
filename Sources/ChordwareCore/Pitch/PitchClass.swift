@@ -81,7 +81,11 @@ public extension MIDINote {
     }
 
     /// Render a MIDI note as scientific pitch notation.
-    static func name(_ note: Int, preferFlats: Bool = false) -> String {
+    ///
+    /// Flats unless told otherwise, matching every other place a note is
+    /// spelled without a key to consult. Sharps by default is what had the
+    /// readout saying Bb in the chord and A#2 in the line under it.
+    static func name(_ note: Int, preferFlats: Bool = true) -> String {
         SpelledNote.natural(PitchClass(note), preferFlats: preferFlats).name() + "\(octave(note))"
     }
 }

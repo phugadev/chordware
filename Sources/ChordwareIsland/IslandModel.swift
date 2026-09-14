@@ -61,7 +61,13 @@ public final class IslandModel {
         if let chord { return chord.spokenName(naming: naming, in: key) }
         switch heldNotes.count {
         case 0: return ""
-        case 1: return "single note \u{00B7} \(MIDINote.name(heldNotes[0]))"
+        case 1:
+            // Spelled through exactly the same call as `displaySymbol`, so the
+            // two lines cannot disagree. They did: Bb in the chord, A#2 in the
+            // caption under it, for one key held.
+            let note = heldNotes[0]
+            let name = naming.name(PitchClass(note), in: key, unicode: true)
+            return "single note \u{00B7} \(name)\(MIDINote.octave(note))"
         case 2:
             return ChordDetector.describeDyad(midiNotes: heldNotes).map { "interval \u{00B7} \($0)" }
                 ?? "two notes"
