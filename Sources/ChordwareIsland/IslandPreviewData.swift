@@ -19,7 +19,12 @@ public enum IslandPreviewData {
         let script = ["Cmaj7", "A7", "Dm7", "G7", "Ab", "Bb7"]
         for (index, symbol) in script.enumerated() {
             if let chord = ChordParser.parse(symbol) {
-                model.progression.append(chord, atMs: index * 2000)
+                // With notes, like the live path records them. Without, the
+                // history strip renders chords that light no keys.
+                let voicing = chord.spelledTones.map {
+                    48 + $0.note.pitchClass.value + ($0.interval.semitones >= 12 ? 12 : 0)
+                }
+                model.progression.append(chord, atMs: index * 2000, notes: voicing.sorted())
             }
         }
 

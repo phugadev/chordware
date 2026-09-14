@@ -41,6 +41,9 @@ public enum IslandRenderer {
                 try renderCompanion(to: $0, size: CGSize(width: 900, height: height))
             }
         }
+        // TRIAL: a chord clicked out of the history. Its keys light up and the
+        // readout names it, until you play again.
+        try shot("trial-inspecting") { try renderCompanion(to: $0, inspectIndex: 3) }
         // The palettes, side by side, on the voicing that tests them: three
         // white keys and one black, where the black one is the note you most
         // need to see.
@@ -63,6 +66,7 @@ public enum IslandRenderer {
     public static func renderCompanion(to url: URL, sounding: Bool = true,
                                        notes: [Int]? = nil,
                                        palette: IslandTheme.Palette = IslandTheme.standard,
+                                       inspectIndex: Int? = nil,
 
                                        size: CGSize = CGSize(width: 900, height: 272)) throws -> URL? {
         let model = IslandPreviewData.model()
@@ -75,6 +79,9 @@ public enum IslandRenderer {
             } else {
                 model.presentNotesOnly(notes, atMs: 0)
             }
+        }
+        if let inspectIndex, inspectIndex < model.progression.events.count {
+            model.inspect(model.progression.events[inspectIndex])
         }
         // Clip like a window does: ImageRenderer otherwise sizes to the
         // content's real layout, so overflow escapes the frame and the

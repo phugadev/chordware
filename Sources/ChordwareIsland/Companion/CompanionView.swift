@@ -1,3 +1,4 @@
+import AppKit
 import ChordwareCore
 import SwiftUI
 
@@ -33,17 +34,17 @@ public struct CompanionView: View {
         min(76, max(32, height * 0.42))
     }
 
-    private var isPlaying: Bool { !model.heldNotes.isEmpty }
+    private var isPlaying: Bool { !model.shownNotes.isEmpty }
 
     public var body: some View {
         VStack(spacing: 0) {
             readout
-            MiniPiano(heldNotes: model.heldNotes,
+            MiniPiano(heldNotes: model.shownNotes,
                       lowNote: model.keyboardLowNote,
                       octaves: model.keyboardOctaves,
                       showsOctaveLabels: true,
                       namesHeldNotes: true,
-                      chord: model.chord,
+                      chord: model.shownChord,
                       key: model.key,
                       palette: palette)
                 // Edge to edge. The rounded card, its lit border and its drop
@@ -111,14 +112,29 @@ public struct CompanionView: View {
         return HStack(spacing: 6) {
             Spacer(minLength: 0)
             ForEach(events) { event in
-                Text(event.chord.symbol(naming: .letters, in: model.key, unicode: true))
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(event.id == events.last?.id
-                                     ? palette.chord : IslandTheme.tertiary)
-                    .lineLimit(1)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Capsule().fill(Color.white.opacity(0.07)))
+                let inspected = model.inspecting?.id == event.id
+                let latest = event.id == events.last?.id && model.inspecting == nil
+                Button {
+                    model.inspect(event)
+                } label: {
+                    Text(event.chord.symbol(naming: .letters, in: model.key, unicode: true))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(inspected ? IslandTheme.panel
+                                         : (latest ? palette.chord : IslandTheme.tertiary))
+                        .lineLimit(1)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(Capsule().fill(inspected ? palette.chord
+                                                   : Color.white.opacity(0.07)))
+                }
+                .buttonStyle(.plain)
+                // A pointing hand, so the strip is discoverable without a label
+                // saying "click me". `pointerStyle` would be the one line for
+                // this and it is macOS 15 only.
+                .onHover { inside in
+                    if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                }
+                .help("Show this chord on the keyboard")
             }
             Spacer(minLength: 0)
         }
