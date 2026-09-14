@@ -2,7 +2,12 @@ import Foundation
 
 @MainActor
 func runAll() {
-    if ProcessInfo.processInfo.arguments.contains("--diagnose") {
+    let arguments = ProcessInfo.processInfo.arguments
+    if let i = arguments.firstIndex(of: "--audio"), i + 1 < arguments.count {
+        probeAudioFile(arguments[i + 1])
+        exit(0)
+    }
+    if arguments.contains("--diagnose") {
         dumpSignalDiagnostics()
         exit(0)
     }
