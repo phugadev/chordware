@@ -31,17 +31,16 @@ public enum IslandRenderer {
         // A plain triad, which is what most of the colour work has to answer to.
         try shot("companion-triad") { try renderCompanion(to: $0, notes: [62, 65, 69]) }
 
-        // The layout answers to the window's height rather than to a mode, so
-        // what has to be checked is a range of heights: full, just above and
-        // just below the point the panel is dropped, and the smallest useful
-        // window.
-        for height in [600, 586, 570, 540, 380, 280] as [CGFloat] {
+        // Every height the window can be dragged to, from the smallest the
+        // layout allows upward.
+        for height in [640, 500, 400, 300] as [CGFloat] {
             try shot("companion-h\(Int(height))") {
                 try renderCompanion(to: $0, size: CGSize(width: 900, height: height))
             }
         }
-        for naming in [NoteNaming.fixedDo] {
-            try shot("companion-\(naming.rawValue)") { try renderCompanion(to: $0, naming: naming) }
+        // Narrow, where the keys are at their smallest and the labels drop out.
+        try shot("companion-narrow") {
+            try renderCompanion(to: $0, size: CGSize(width: 560, height: 300))
         }
         return written
     }
@@ -49,13 +48,9 @@ public enum IslandRenderer {
     /// Render the window's contents at its default size.
     public static func renderCompanion(to url: URL, sounding: Bool = true,
                                        notes: [Int]? = nil,
-                                       mode: DisplayMode = .companion,
-                                       naming: NoteNaming = .letters,
-                                       size: CGSize = CGSize(width: 900, height: 600)) throws -> URL? {
+                                       size: CGSize = CGSize(width: 900, height: 400)) throws -> URL? {
         let model = IslandPreviewData.model()
         model.isSounding = sounding
-        model.displayMode = mode
-        model.naming = naming
         if !sounding { model.heldNotes = [] }
         if let notes {
             if notes.count >= 3 {

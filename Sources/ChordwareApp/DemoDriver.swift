@@ -67,7 +67,6 @@ final class DemoDriver {
         // Re-estimate the key from what has been captured so far.
         if let estimate = model.progression.estimatedKey {
             model.key = estimate.key
-            model.keyConfidence = estimate.confidence
         }
     }
 }

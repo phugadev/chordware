@@ -62,7 +62,6 @@ final class SessionBridge {
     var keyboardSize: KeyboardSize { keyboardRange.size }
 
     private func apply(_ update: LiveSession.Update) {
-        model.chroma = update.chroma
         model.sustainDown = update.sustainDown
         model.velocities = update.velocities
 
@@ -80,7 +79,6 @@ final class SessionBridge {
         }
 
         model.key = update.key
-        model.keyConfidence = update.keyConfidence
         model.present(candidates: update.candidates,
                       heldNotes: update.notes,
                       atMs: update.timeMs,

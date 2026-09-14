@@ -2,9 +2,9 @@
 
 A virtual piano keyboard that tells you what you are playing.
 
-Play, and the window shows it: the chord, its inversion, the key you're in, the
-Roman numeral, the notes under your fingers and the scales that fit. Put it on a
-second screen while you practise, or beside your hands while you record. It
+Play, and the window shows it: the chord, and the keys under your fingers, named
+and coloured by what each note is doing in it. That is the whole window. Put it
+on a second screen while you practise, or beside your hands while you record. It
 reads your MIDI keyboard **or any audio your Mac can hear**, so it works on a
 Logic bounce, a DJ deck, a YouTube video or a mic'd guitar just as well as on a
 controller.
@@ -28,22 +28,31 @@ So Chordware does audio as well as MIDI, and treats naming a chord as the
 
 ## What it does
 
+In the window:
+
 - **Live chord detection** from MIDI or audio, on a keyboard you can watch.
-- **Ranked readings, not one answer.** `A C E G` is shown as `Am7` *and*
-  `C6/A` with confidences, because which one is right depends on context the
-  notes alone don't carry.
-- **Correct spelling.** The seventh of `Ab7` is `Gb`, never `F#`.
+- **Keys coloured by function** — root, third, fifth, seventh and tensions — so
+  you can see the shape of a voicing, not just read its name.
+- **Correct spelling.** The seventh of `Ab7` is `Gb`, never `F#`. Chordware
+  tracks the key to get this right; it does not put the key on screen.
+- **Capture.** Everything you play is recorded from launch, saveable as a `.mid`
+  at any point, so an idea found by accident is not lost.
+- **MIDI passthrough** through a virtual port named `Chordware`, off by
+  default — see below.
+
+Behind it, in `ChordwareCore` and the CLI:
+
+- **Ranked readings, not one answer.** `A C E G` is `Am7` *and* `C6/A` with
+  confidences, because which one is right depends on context the notes alone
+  don't carry.
 - **Key estimation and Roman numerals**, including secondary dominants
   (`V7/ii`), tritone substitutes (`subV7/I`), the backdoor dominant (`bVII7`),
   Neapolitans and borrowed chords — each labelled with why.
-- **Cadence detection** as it happens.
-- **Progression capture** with a running timeline.
-- **92 scales and modes**, with the ones that fit the current chord ranked.
-- **Three note-naming systems** — letters, fixed do (Do Re Mi, Do always C), and
-  Nashville numbers relative to the key — applied consistently everywhere.
-- **MIDI passthrough** through a virtual port named `Chordware`, off by
-  default — see below.
-- **A CLI** over the same engine, so all of it is scriptable.
+- **Cadence detection**, progression capture, and **92 scales and modes** with
+  the ones that fit a chord ranked.
+
+The window used to show all of it. It was true and it went unread: when your
+hands are on the keys, you look at one thing.
 
 ## Requirements
 
@@ -156,7 +165,6 @@ notch where it cannot be clicked, so there is a global shortcut too:
 | | |
 |---|---|
 | `Control-Option-Command-C` | show or hide the window |
-| `Control-Option-Command-P` | switch between companion and presentation |
 | `Command-S` (menu open) | save the performance as MIDI |
 | menu bar > Quit | or `Command-Q` from the menu |
 
@@ -196,7 +204,7 @@ ChordwareCore     pure Swift music theory: pitch, chords, scales, analysis.
                   No system frameworks, no I/O. Everything else depends on it.
 ChordwareSignal   audio to chroma to chord, on Accelerate.
 ChordwareEngine   CoreMIDI, audio input, preview synth, LiveSession.
-ChordwareIsland   the window: the keyboard, the readout and the menu bar item.
+ChordwareUI       the window: the keyboard, the chord name and the menu bar item.
 ChordwareApp      the app; the only place the engine and the view meet.
 chordware         the CLI.
 ```
@@ -230,11 +238,10 @@ run, at every window height the layout has to survive.
 ## Status
 
 Working: the window, MIDI in, virtual MIDI out with passthrough, audio chord
-detection, key and Roman numeral analysis, progression capture, the CLI.
+detection, performance capture, and the CLI over the full engine.
 
-Not yet: the local HTTP API and a settings window. Suggestion and
-reharmonisation are deliberately out of scope — they serve composing rather than
-seeing what you play.
+Not yet: the local HTTP API. Suggestion and reharmonisation are deliberately out
+of scope — they serve composing rather than seeing what you play.
 
 Gone: the notch overlay. It hung above the menu bar on the built-in screen, at a
 level above every other window, and its footprint swallowed clicks across the

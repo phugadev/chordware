@@ -3,54 +3,37 @@ import ChordwareCore
 
 /// A status-bar item, so a background app with no Dock icon is still reachable.
 ///
-/// Without this there is no way to open the window, switch input, or even quit
-/// Chordware short of killing the process.
+/// Deliberately short. This menu used to carry a display mode, a key you could
+/// lock, three note-naming systems, a role-colour toggle and two clear
+/// commands, for a window that no longer has any of those things on it.
 @MainActor
 public final class MenuBarController: NSObject, NSMenuDelegate {
     public struct Actions {
         public var openCompanion: () -> Void
         public var toggleAlwaysOnTop: () -> Void
-        public var setDisplayMode: (DisplayMode) -> Void
-        public var setKey: (Key?) -> Void
         public var exportPerformance: () -> Void
-        public var clearPerformance: () -> Void
         public var chooseMIDI: () -> Void
         public var chooseAudio: () -> Void
         public var togglePassthrough: () -> Void
-        public var resetProgression: () -> Void
         public var panic: () -> Void
         public var setKeyboardSize: (KeyboardSize) -> Void
-        public var setNaming: (NoteNaming) -> Void
-        public var toggleRoleColors: () -> Void
 
         public init(openCompanion: @escaping () -> Void,
                     toggleAlwaysOnTop: @escaping () -> Void,
-                    setDisplayMode: @escaping (DisplayMode) -> Void,
-                    setKey: @escaping (Key?) -> Void,
                     exportPerformance: @escaping () -> Void,
-                    clearPerformance: @escaping () -> Void,
                     chooseMIDI: @escaping () -> Void,
                     chooseAudio: @escaping () -> Void,
                     togglePassthrough: @escaping () -> Void,
-                    resetProgression: @escaping () -> Void,
                     panic: @escaping () -> Void,
-                    setKeyboardSize: @escaping (KeyboardSize) -> Void,
-                    setNaming: @escaping (NoteNaming) -> Void,
-                    toggleRoleColors: @escaping () -> Void) {
+                    setKeyboardSize: @escaping (KeyboardSize) -> Void) {
             self.openCompanion = openCompanion
             self.toggleAlwaysOnTop = toggleAlwaysOnTop
-            self.setDisplayMode = setDisplayMode
-            self.setKey = setKey
             self.exportPerformance = exportPerformance
-            self.clearPerformance = clearPerformance
             self.chooseMIDI = chooseMIDI
             self.chooseAudio = chooseAudio
             self.togglePassthrough = togglePassthrough
-            self.resetProgression = resetProgression
             self.panic = panic
             self.setKeyboardSize = setKeyboardSize
-            self.setNaming = setNaming
-            self.toggleRoleColors = toggleRoleColors
         }
     }
 
@@ -59,13 +42,9 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     public var currentAlwaysOnTop: () -> Bool = { false }
     public var currentChordSummary: () -> String? = { nil }
     public var currentPassthrough: () -> Bool = { false }
-    public var currentDisplayMode: () -> DisplayMode = { .companion }
-    public var currentLockedKey: () -> Key? = { nil }
     /// How many notes are waiting to be exported, for the menu title.
     public var currentPerformanceCount: () -> Int = { 0 }
     public var currentKeyboardSize: () -> KeyboardSize = { .default }
-    public var currentNaming: () -> NoteNaming = { .letters }
-    public var currentRoleColors: () -> Bool = { true }
 
     private var statusItem: NSStatusItem?
     private let actions: Actions
@@ -113,66 +92,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         add(menu, "Keep Window on Top", key: "t", checked: currentAlwaysOnTop()) { [weak self] in
             self?.actions.toggleAlwaysOnTop()
         }
-        // A window size, not a mode. There is one layout now and it answers to
-        // the window's height, so this item only resizes -- which is what the
-        // old "mode" always really was.
-        let mode = currentDisplayMode()
-        let order = DisplayMode.allCases
-        let next = order[((order.firstIndex(of: mode) ?? 0) + 1) % order.count]
-        let toggle = NSMenuItem(
-            title: next.usesCompactLayout ? "Shrink to the Keyboard" : "Show Everything",
-            action: #selector(fire(_:)), keyEquivalent: "p")
-        toggle.keyEquivalentModifierMask = [.command, .option, .control]
-        toggle.target = self
-        toggle.representedObject = Box { [weak self] in self?.actions.setDisplayMode(next) }
-        toggle.toolTip = "Resizes the window. A tall window shows the notes, the scales "
-            + "and the progression; a short one keeps the chord and the keyboard, and draws "
-            + "the chord larger. Dragging the window does the same thing."
-        menu.addItem(toggle)
-        add(menu, "Colour Keys by Role", key: "", checked: currentRoleColors()) { [weak self] in
-            self?.actions.toggleRoleColors()
-        }
-
-        // Spelling depends on the key, and the key takes a few chords to
-        // establish. Naming it up front is the answer to "why is my D minor
-        // full of sharps".
-        let keyItem = NSMenuItem(title: "Key", action: nil, keyEquivalent: "")
-        let keyMenu = NSMenu()
-        let locked = currentLockedKey()
-        let auto = NSMenuItem(title: "Detect Automatically", action: #selector(fire(_:)),
-                              keyEquivalent: "")
-        auto.target = self
-        auto.state = locked == nil ? .on : .off
-        auto.representedObject = Box { [weak self] in self?.actions.setKey(nil) }
-        keyMenu.addItem(auto)
-        keyMenu.addItem(.separator())
-        for candidate in Key.allKeys {
-            let item = NSMenuItem(title: candidate.name, action: #selector(fire(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.state = candidate == locked ? .on : .off
-            item.representedObject = Box { [weak self] in self?.actions.setKey(candidate) }
-            keyMenu.addItem(item)
-        }
-        keyItem.submenu = keyMenu
-        menu.addItem(keyItem)
-
-        let namingItem = NSMenuItem(title: "Note Names", action: nil, keyEquivalent: "")
-        let namingMenu = NSMenu()
-        let naming = currentNaming()
-        for option in NoteNaming.allCases {
-            let item = NSMenuItem(title: option.displayName, action: #selector(fire(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.state = option == naming ? .on : .off
-            item.representedObject = Box { [weak self] in self?.actions.setNaming(option) }
-            if option.requiresKey {
-                item.toolTip = "Relative to the detected key, so it needs one to be established."
-            }
-            namingMenu.addItem(item)
-        }
-        namingItem.submenu = namingMenu
-        menu.addItem(namingItem)
         menu.addItem(.separator())
 
         let audio = currentSourceIsAudio()
@@ -182,6 +101,21 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         add(menu, "Listen to Audio", key: "", checked: audio) { [weak self] in
             self?.actions.chooseAudio()
         }
+
+        let keyboard = NSMenuItem(title: "Keyboard", action: nil, keyEquivalent: "")
+        let keyboardMenu = NSMenu()
+        let current = currentKeyboardSize()
+        for option in KeyboardSize.allCases {
+            let item = NSMenuItem(title: option.displayName, action: #selector(fire(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.state = option == current ? .on : .off
+            item.representedObject = Box { [weak self] in self?.actions.setKeyboardSize(option) }
+            keyboardMenu.addItem(item)
+        }
+        keyboard.submenu = keyboardMenu
+        keyboard.toolTip = "Fixed. The keyboard never resizes itself while you play."
+        menu.addItem(keyboard)
 
         let passthrough = NSMenuItem(title: "Send MIDI to DAW (passthrough)",
                                      action: #selector(fire(_:)), keyEquivalent: "")
@@ -205,29 +139,14 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         export.representedObject = Box { [weak self] in self?.actions.exportPerformance() }
         export.toolTip = "Everything played since Chordware started, as a .mid file."
         menu.addItem(export)
-        add(menu, "Clear Performance", key: "") { [weak self] in self?.actions.clearPerformance() }
-        menu.addItem(.separator())
 
-        add(menu, "Clear Progression", key: "k") { [weak self] in self?.actions.resetProgression() }
-        let keyboard = NSMenuItem(title: "Keyboard", action: nil, keyEquivalent: "")
-        let keyboardMenu = NSMenu()
-        let current = currentKeyboardSize()
-        for option in KeyboardSize.allCases {
-            let item = NSMenuItem(title: option.displayName, action: #selector(fire(_:)),
-                                  keyEquivalent: "")
-            item.target = self
-            item.state = option == current ? .on : .off
-            item.representedObject = Box { [weak self] in self?.actions.setKeyboardSize(option) }
-            keyboardMenu.addItem(item)
-        }
-        keyboard.submenu = keyboardMenu
-        keyboard.toolTip = "Fixed. The keyboard never resizes itself while you play."
-        menu.addItem(keyboard)
-        let panic = NSMenuItem(title: "Panic (All Notes Off)", action: #selector(fire(_:)), keyEquivalent: ".")
+        let panic = NSMenuItem(title: "Panic (All Notes Off)", action: #selector(fire(_:)),
+                               keyEquivalent: ".")
         panic.keyEquivalentModifierMask = [.command]
         panic.target = self
         panic.representedObject = Box { [weak self] in self?.actions.panic() }
-        panic.toolTip = "Clears any key stuck lit and tells the MIDI port to release everything. For a Note Off that never arrived, or a pedal that never came up."
+        panic.toolTip = "Clears any key stuck lit and tells the MIDI port to release "
+            + "everything. For a Note Off that never arrived, or a pedal that never came up."
         menu.addItem(panic)
         menu.addItem(.separator())
         add(menu, "Quit Chordware", key: "q") { NSApp.terminate(nil) }

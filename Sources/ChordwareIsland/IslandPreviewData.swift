@@ -12,7 +12,6 @@ public enum IslandPreviewData {
         let model = IslandModel()
         let key = Key(tonic: SpelledNote("C")!, mode: .major)
         model.key = key
-        model.keyConfidence = 0.94
         model.inputLabel = "MIDI"
 
         // A ii-V-I with a secondary dominant and a borrowed chord, so the
