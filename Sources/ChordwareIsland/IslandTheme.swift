@@ -18,17 +18,26 @@ public enum IslandTheme {
     public static let secondary = Color.white.opacity(0.60)
     public static let tertiary = Color.white.opacity(0.34)
 
-    /// One colour for everything that is being played: every held key, and the
-    /// chord name above them.
+    /// The chord you are playing, in the readout.
     ///
-    /// There were four here, one per chord tone, and they were the wrong answer
-    /// to a real question. Colouring by function means learning a legend before
-    /// the display tells you anything, and it makes a thirteenth chord look
-    /// like a paint chart. One vivid colour says the only thing the keyboard
-    /// has to say at a glance -- *these* are down -- and the chord name in the
-    /// same colour ties the two halves of the window together without a rule
-    /// between them.
-    public static let played = Color(red: 0.161, green: 0.639, blue: 1.0)
+    /// Amber rather than cyan, because cyan on black over a keyboard is
+    /// ChordWatch's face and this should not be mistaken for it.
+    public static let chord = Color(red: 0.914, green: 0.510, blue: 0.055)
+
+    /// White keys under your fingers.
+    public static let playedWhite = Color(red: 0.122, green: 0.663, blue: 0.408)
+
+    /// Black keys under your fingers.
+    ///
+    /// Its own colour, not a shade of the white keys'. A black key is narrow,
+    /// half-height and sits between two white ones, so a pressed C# in the same
+    /// colour as a pressed C reads as one wide smear rather than two notes --
+    /// which is exactly the reading you need when you are checking whether you
+    /// caught the sharp.
+    public static let playedBlack = Color(red: 0.541, green: 0.361, blue: 0.965)
+
+    /// Input is live. Shares the keyboard's green: both mean notes are arriving.
+    public static let live = Color(red: 0.153, green: 0.784, blue: 0.478)
 
     public static func chordFont(_ size: CGFloat) -> Font {
         .system(size: size, weight: .semibold, design: .rounded)

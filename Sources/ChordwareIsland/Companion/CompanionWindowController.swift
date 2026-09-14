@@ -15,8 +15,8 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     /// size. Content sizes, not frame sizes: the titlebar adds roughly thirty
     /// points on top, and treating one as the other clipped the keyboard off
     /// the bottom.
-    private static let defaultContent = NSSize(width: 900, height: 340)
-    private static let minimumContent = NSSize(width: 520, height: 260)
+    private static let defaultContent = NSSize(width: 900, height: 296)
+    private static let minimumContent = NSSize(width: 520, height: 236)
 
     /// The window frame, kept across launches. One owner, persisted -- AppKit's
     /// own autosave used to write the same thing from the other side and the
@@ -26,7 +26,7 @@ public final class CompanionWindowController: NSObject, NSWindowDelegate {
     /// six hundred points tall to fit it. A frame saved for that layout opens
     /// this one with a band of empty ground in it, so the old key is abandoned
     /// rather than migrated.
-    private static let companionFrameKey = "ChordwareWindowFrame3"
+    private static let companionFrameKey = "ChordwareWindowFrame4"
 
     private var storedCompanionFrame: NSRect? {
         get {

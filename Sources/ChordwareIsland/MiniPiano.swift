@@ -77,7 +77,7 @@ public struct MiniPiano: View {
                 let rect = key.rect.insetBy(dx: 0.5, dy: 0)
                 let path = Path(roundedRect: rect, cornerRadius: radius)
                 if held.contains(key.note) {
-                    context.fill(path, with: .color(IslandTheme.played))
+                    context.fill(path, with: .color(IslandTheme.playedWhite))
                 } else {
                     context.fill(path, with: .linearGradient(
                         Gradient(colors: [Color(red: 0.965, green: 0.968, blue: 0.972),
@@ -91,7 +91,7 @@ public struct MiniPiano: View {
             for key in layout.blackKeys {
                 let path = Path(roundedRect: key.rect, cornerRadius: radius)
                 if held.contains(key.note) {
-                    context.fill(path, with: .color(IslandTheme.played))
+                    context.fill(path, with: .color(IslandTheme.playedBlack))
                 } else {
                     context.fill(path, with: .linearGradient(
                         Gradient(colors: [Color(red: 0.185, green: 0.192, blue: 0.205),

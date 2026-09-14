@@ -28,7 +28,7 @@ public struct CompanionView: View {
     /// The chord is drawn to the panel it is in, so dragging the window short
     /// shrinks it instead of running it through the keyboard.
     private static func symbolSize(inPanel height: CGFloat) -> CGFloat {
-        min(84, max(34, height * 0.38))
+        min(76, max(32, height * 0.42))
     }
 
     private var isPlaying: Bool { !model.heldNotes.isEmpty }
@@ -60,58 +60,35 @@ public struct CompanionView: View {
     }
 
     /// Black, and empty when your hands are off the keys.
+    ///
+    /// Only the chord and its name. The other readings of the same keys used to
+    /// sit in one corner -- Am7 and C6/A for the same four notes -- and which
+    /// inversion it was in the other. Both were true and neither was read: they
+    /// are only visible once you are already looking at the chord name, which is
+    /// the moment you have the least attention to spare.
     private var readout: some View {
         GeometryReader { proxy in
-        ZStack {
-            IslandTheme.panel
-            VStack(spacing: 6) {
-                Text(model.displaySymbol)
-                    .font(.system(size: Self.symbolSize(inPanel: proxy.size.height),
-                                  weight: .semibold, design: .rounded))
-                    .foregroundStyle(isPlaying ? IslandTheme.played : IslandTheme.tertiary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.35)
-                    .contentTransition(.numericText())
-                Text(model.displayDetail)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(IslandTheme.secondary)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, 130)
-            // The other ways to read the same keys, quietly. `A C E G` is Am7
-            // and it is C6/A, and which one you meant is context the notes do
-            // not carry -- so the display should not pretend to be sure.
-            VStack(alignment: .trailing, spacing: 1) {
-                ForEach(Array(model.alternatives.prefix(2).enumerated()), id: \.offset) { _, other in
-                    Text(other.chord.symbol(naming: .letters, in: model.key, unicode: true))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(IslandTheme.tertiary)
+            ZStack {
+                IslandTheme.panel
+                VStack(spacing: 6) {
+                    Text(model.displaySymbol)
+                        .font(.system(size: Self.symbolSize(inPanel: proxy.size.height),
+                                      weight: .semibold, design: .rounded))
+                        .foregroundStyle(isPlaying ? IslandTheme.chord : IslandTheme.tertiary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.35)
+                        .contentTransition(.numericText())
+                    Text(model.displayDetail)
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(IslandTheme.secondary)
+                        .lineLimit(1)
                 }
+                .padding(.horizontal, 24)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-            .padding(14)
-            // Which inversion, because on a keyboard that is a shape under your
-            // hand rather than a fact about the notes.
-            inversions
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                .padding(14)
-        }
-        // Nothing escapes the panel and draws over the keys, whatever the
-        // window is dragged to.
-        .clipped()
-        }
-    }
-
-    private static let inversionNames = ["root", "1st", "2nd", "3rd"]
-
-    private var inversions: some View {
-        HStack(spacing: 10) {
-            ForEach(Array(Self.inversionNames.enumerated()), id: \.offset) { index, name in
-                let active = isPlaying && model.chord?.inversion == index
-                Text(name)
-                    .font(.system(size: 11, weight: active ? .semibold : .medium, design: .rounded))
-                    .foregroundStyle(active ? IslandTheme.played : IslandTheme.tertiary)
-            }
+            // Nothing escapes the panel and draws over the keys, whatever the
+            // window is dragged to.
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
         }
     }
 
@@ -121,7 +98,7 @@ public struct CompanionView: View {
     private var status: some View {
         HStack(spacing: 7) {
             Circle()
-                .fill(isPlaying ? IslandTheme.played : IslandTheme.tertiary)
+                .fill(isPlaying ? IslandTheme.live : IslandTheme.tertiary)
                 .frame(width: 5, height: 5)
             Text(model.inputLabel)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -131,7 +108,7 @@ public struct CompanionView: View {
                 Text("SUSTAIN")
                     .font(.system(size: 9, weight: .bold, design: .rounded))
                     .tracking(0.5)
-                    .foregroundStyle(IslandTheme.played)
+                    .foregroundStyle(IslandTheme.chord)
             }
             Spacer(minLength: 0)
         }
