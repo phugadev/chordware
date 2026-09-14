@@ -10,9 +10,13 @@ import SwiftUI
 /// the bottom and no taller than they need to be to be read.
 public struct CompanionView: View {
     @Bindable public var model: IslandModel
+    /// Defaulted, so the window is one call and the alternatives are one
+    /// argument.
+    public var palette: IslandTheme.Palette
 
-    public init(model: IslandModel) {
+    public init(model: IslandModel, palette: IslandTheme.Palette = IslandTheme.standard) {
         self.model = model
+        self.palette = palette
     }
 
     /// A strip, not a wall.
@@ -42,7 +46,8 @@ public struct CompanionView: View {
                       showsOctaveLabels: true,
                       namesHeldNotes: true,
                       chord: model.chord,
-                      key: model.key)
+                      key: model.key,
+                      palette: palette)
                 // Edge to edge. The rounded card, its lit border and its drop
                 // shadow were three ways of saying "this is a piano" to
                 // something that already looks like one.
@@ -74,7 +79,7 @@ public struct CompanionView: View {
                     Text(model.displaySymbol)
                         .font(.system(size: Self.symbolSize(inPanel: proxy.size.height),
                                       weight: .semibold, design: .rounded))
-                        .foregroundStyle(isPlaying ? IslandTheme.chord : IslandTheme.tertiary)
+                        .foregroundStyle(isPlaying ? palette.chord : IslandTheme.tertiary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.35)
                         .contentTransition(.numericText())
@@ -98,7 +103,7 @@ public struct CompanionView: View {
     private var status: some View {
         HStack(spacing: 7) {
             Circle()
-                .fill(isPlaying ? IslandTheme.live : IslandTheme.tertiary)
+                .fill(isPlaying ? palette.live : IslandTheme.tertiary)
                 .frame(width: 5, height: 5)
             Text(model.inputLabel)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
@@ -108,7 +113,7 @@ public struct CompanionView: View {
                 Text("SUSTAIN")
                     .font(.system(size: 9, weight: .bold, design: .rounded))
                     .tracking(0.5)
-                    .foregroundStyle(IslandTheme.chord)
+                    .foregroundStyle(palette.chord)
             }
             Spacer(minLength: 0)
         }

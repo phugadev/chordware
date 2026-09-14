@@ -23,6 +23,7 @@ public struct MiniPiano: View {
     /// Only for spelling the labels: Bb and A# are the same key and not the
     /// same note. Nothing here is coloured by what a note is doing.
     public var chord: Chord?
+    public var palette: IslandTheme.Palette
 
     /// C2 to C6, which covers where chords are actually voiced.
     private static let defaultLow = 36
@@ -39,6 +40,7 @@ public struct MiniPiano: View {
                 namesHeldNotes: Bool = false,
                 chord: Chord? = nil,
                 key: Key? = nil,
+                palette: IslandTheme.Palette = IslandTheme.standard,
                 maxWhiteWidth: CGFloat = PianoLayout.maxWhiteWidth) {
         self.heldNotes = heldNotes
         self.key = key
@@ -46,6 +48,7 @@ public struct MiniPiano: View {
         self.showsOctaveLabels = showsOctaveLabels
         self.namesHeldNotes = namesHeldNotes
         self.chord = chord
+        self.palette = palette
 
         let lowest = min(heldNotes.min() ?? Self.defaultLow, Self.defaultLow)
         let highest = max(heldNotes.max() ?? Self.defaultHigh, Self.defaultHigh)
@@ -77,7 +80,7 @@ public struct MiniPiano: View {
                 let rect = key.rect.insetBy(dx: 0.5, dy: 0)
                 let path = Path(roundedRect: rect, cornerRadius: radius)
                 if held.contains(key.note) {
-                    context.fill(path, with: .color(IslandTheme.playedWhite))
+                    context.fill(path, with: .color(palette.whiteKey))
                 } else {
                     context.fill(path, with: .linearGradient(
                         Gradient(colors: [Color(red: 0.965, green: 0.968, blue: 0.972),
@@ -91,7 +94,7 @@ public struct MiniPiano: View {
             for key in layout.blackKeys {
                 let path = Path(roundedRect: key.rect, cornerRadius: radius)
                 if held.contains(key.note) {
-                    context.fill(path, with: .color(IslandTheme.playedBlack))
+                    context.fill(path, with: .color(palette.blackKey))
                 } else {
                     context.fill(path, with: .linearGradient(
                         Gradient(colors: [Color(red: 0.185, green: 0.192, blue: 0.205),
@@ -113,7 +116,8 @@ public struct MiniPiano: View {
                     let text = Text(name)
                         .font(.system(size: min(11, whiteWidth * 0.62),
                                       weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(key.isBlack ? palette.blackKeyLabel
+                                                     : palette.whiteKeyLabel)
                     // Black keys are short, so their label sits at their own
                     // foot; white keys carry theirs at the bottom of the board.
                     let y = key.isBlack ? key.rect.maxY - 9 : size.height - 9
