@@ -59,9 +59,12 @@ public struct ChordwareView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Theme.background)
         .preferredColorScheme(.dark)
-        // A chord change is a musical event, so let it read as one. Short
-        // enough that it never lags behind the hands.
-        .animation(.easeOut(duration: 0.12), value: model.displaySymbol)
+        // No animation anywhere, on purpose. A crossfade on the chord name
+        // sounded right -- a chord change is an event, let it read as one --
+        // and it is wrong for a readout you are reading while your hands are
+        // busy: it spends the first moment after every change with the one
+        // thing you are looking at illegible. The keys announce the change in
+        // colour already, which costs nothing to read.
     }
 
     /// Black, and empty when your hands are off the keys.
@@ -82,7 +85,6 @@ public struct ChordwareView: View {
                         .foregroundStyle(isPlaying ? palette.chord : Theme.tertiary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.35)
-                        .contentTransition(.numericText())
                     Text(model.displayDetail)
                         .font(.system(size: 14, weight: .medium, design: .rounded))
                         .foregroundStyle(Theme.secondary)
