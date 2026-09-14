@@ -29,8 +29,6 @@ public final class IslandModel {
     /// Pedal state. Shown because a stuck pedal is otherwise invisible and
     /// looks exactly like the display refusing to let go of a chord.
     public var sustainDown = false
-    /// Velocity per held note, used to shade how hard each key was struck.
-    public var velocities: [Int: Int] = [:]
     public init() {}
 
     public var chord: Chord? { candidates.first?.chord }
@@ -115,11 +113,18 @@ public final class IslandModel {
         }
     }
 
-    /// Notes released. The chord is *kept* so the window goes on showing what
-    /// was just played; only `isSounding` and the held keys clear.
+    /// Notes released: the readout empties back to its dashes.
+    ///
+    /// The chord used to be kept on screen after you lifted your hands, on the
+    /// theory that a teaching display should go on showing what was just
+    /// played. In use it is the opposite: a chord name with no keys lit under
+    /// it is a display that has not noticed you stopped, and there is no way to
+    /// tell it apart from one that has frozen. What was played is in the
+    /// capture; the window says what *is* being played.
     public func clearNotes(atMs time: Int) {
         heldNotes = []
         isSounding = false
+        candidates = []
         progression.close(atMs: time)
     }
 

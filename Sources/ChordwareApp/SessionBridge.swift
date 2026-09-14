@@ -63,7 +63,6 @@ final class SessionBridge {
 
     private func apply(_ update: LiveSession.Update) {
         model.sustainDown = update.sustainDown
-        model.velocities = update.velocities
 
 
         guard !update.candidates.isEmpty else {

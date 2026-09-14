@@ -2,8 +2,9 @@
 
 A virtual piano keyboard that tells you what you are playing.
 
-Play, and the window shows it: the chord, and the keys under your fingers, named
-and coloured by what each note is doing in it. That is the whole window. Put it
+Play, and the window shows it: the chord in one vivid colour on black, and the
+keys under your fingers lit in the same colour and named. Lift your hands and it
+goes back to black. That is the whole window. Put it
 on a second screen while you practise, or beside your hands while you record. It
 reads your MIDI keyboard **or any audio your Mac can hear**, so it works on a
 Logic bounce, a DJ deck, a YouTube video or a mic'd guitar just as well as on a
@@ -31,8 +32,13 @@ So Chordware does audio as well as MIDI, and treats naming a chord as the
 In the window:
 
 - **Live chord detection** from MIDI or audio, on a keyboard you can watch.
-- **Keys coloured by function** — root, third, fifth, seventh and tensions — so
-  you can see the shape of a voicing, not just read its name.
+- **One colour, no legend.** Every held key and the chord name share a single
+  vivid blue. Four colours by chord function was tried and it asks you to learn
+  a key before the display tells you anything.
+- **The other readings**, quietly, in the corner: `A C E G` is `Am7` and it is
+  `C6/A`, and which you meant is context the notes do not carry.
+- **Which inversion**, because on a keyboard that is a shape under your hand
+  rather than a fact about the notes.
 - **Correct spelling.** The seventh of `Ab7` is `Gb`, never `F#`. Chordware
   tracks the key to get this right; it does not put the key on screen.
 - **Capture.** Everything you play is recorded from launch, saveable as a `.mid`
@@ -165,8 +171,15 @@ notch where it cannot be clicked, so there is a global shortcut too:
 | | |
 |---|---|
 | `Control-Option-Command-C` | show or hide the window |
+| `Control-Option-Command-T` | keep the window above everything |
+| `Control-Option-Command-K` | panic: release every note, clear every lit key |
 | `Command-S` (menu open) | save the performance as MIDI |
 | menu bar > Quit | or `Command-Q` from the menu |
+
+These are system-wide and work whether or not you can see the status item. They
+use Carbon's `RegisterEventHotKey` rather than a keystroke monitor, so Chordware
+never asks for permission to watch what you type; if another app already owns
+one of them, Chordware says so on stderr at launch rather than failing quietly.
 
 ## Passthrough, and why it is off
 

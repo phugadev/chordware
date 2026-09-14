@@ -1,14 +1,13 @@
 import ChordwareCore
 import SwiftUI
 
-/// The whole app: what you are playing, and the keys you are playing it on.
+/// The whole app: a black readout saying what you are playing, and the keyboard
+/// you are playing it on.
 ///
-/// There used to be a panel under the keyboard listing the chord's tones, six
-/// scales that fit it, and the last eight chords. All of it was true and none
-/// of it was being read, because when your hands are on the keys you look at
-/// one thing. The scales, the Roman numerals, the key analysis and the
-/// progression are all still in the engine and all still reachable from the
-/// `chordware` CLI; they are just not in the way any more.
+/// Laid out after ChordWatch, because ChordWatch got the shape right: the chord
+/// is the thing you look up at, so it gets a panel of its own and most of the
+/// window; the keys are the thing you glance down at, so they are a strip along
+/// the bottom and no taller than they need to be to be read.
 public struct CompanionView: View {
     @Bindable public var model: IslandModel
 
@@ -16,115 +15,127 @@ public struct CompanionView: View {
         self.model = model
     }
 
-    /// Fixed, so nothing moves while you play. A long chord symbol, a missing
-    /// name or an absent device would otherwise each change a height and nudge
-    /// the keyboard.
-    private static let headerHeight: CGFloat = 112
-    private static let symbolSize: CGFloat = 72
-    private static let statusHeight: CGFloat = 34
-    /// A white key is about 23mm by 145mm. Past roughly six and a half times
-    /// its own width it stops looking like a piano key and starts looking like
-    /// a slab.
-    private static let keyboardCap: CGFloat = 264
+    /// A strip, not a wall.
+    ///
+    /// A white key is roughly two and a half times as tall as it is wide at the
+    /// size this is drawn, which is what a keyboard looks like from where you
+    /// sit at one. Given the whole window it grew to six times its width, which
+    /// is a photograph of a piano rather than a control you glance at, and it
+    /// pushed the chord -- the part you actually read -- into a corner.
+    private static let keyboardHeight: CGFloat = 88
+    private static let statusHeight: CGFloat = 24
 
-    private var symbolColor: Color {
-        if model.chord == nil, model.heldNotes.isEmpty { return IslandTheme.tertiary }
-        return model.isSounding ? IslandTheme.primary : IslandTheme.secondary
+    /// The chord is drawn to the panel it is in, so dragging the window short
+    /// shrinks it instead of running it through the keyboard.
+    private static func symbolSize(inPanel height: CGFloat) -> CGFloat {
+        min(84, max(34, height * 0.38))
     }
+
+    private var isPlaying: Bool { !model.heldNotes.isEmpty }
 
     public var body: some View {
         VStack(spacing: 0) {
-            header
-            // Dragged taller than the keyboard's cap, the slack goes around the
-            // keyboard rather than under it: the chord stays at the top where
-            // you look for it and the device line stays at the bottom.
-            Spacer(minLength: 0)
-            keyboard
-            Spacer(minLength: 0)
+            readout
+            MiniPiano(heldNotes: model.heldNotes,
+                      lowNote: model.keyboardLowNote,
+                      octaves: model.keyboardOctaves,
+                      showsOctaveLabels: true,
+                      namesHeldNotes: true,
+                      chord: model.chord,
+                      key: model.key)
+                // Edge to edge. The rounded card, its lit border and its drop
+                // shadow were three ways of saying "this is a piano" to
+                // something that already looks like one.
+                .frame(height: Self.keyboardHeight)
+                // Claim the keyboard's own clicks so it does not drag the window.
+                .contentShape(Rectangle())
             status
         }
-        // Fills the window, so the ground is painted to the edges. Left to its
-        // natural height the stack stopped where the status line did and the
-        // rest of a tall window was whatever was behind it.
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(IslandTheme.background)
         .preferredColorScheme(.dark)
         // A chord change is a musical event, so let it read as one. Short
         // enough that it never lags behind the hands.
-        .animation(.easeOut(duration: 0.13), value: model.chord?.symbol())
+        .animation(.easeOut(duration: 0.12), value: model.displaySymbol)
     }
 
-    private var header: some View {
-        VStack(spacing: 4) {
-            Text(model.displaySymbol)
-                .font(.system(size: Self.symbolSize, weight: .semibold, design: .rounded))
-                .foregroundStyle(symbolColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.4)
-                .contentTransition(.numericText())
-            Text(model.displayDetail)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(IslandTheme.secondary)
-                .lineLimit(1)
+    /// Black, and empty when your hands are off the keys.
+    private var readout: some View {
+        GeometryReader { proxy in
+        ZStack {
+            IslandTheme.panel
+            VStack(spacing: 6) {
+                Text(model.displaySymbol)
+                    .font(.system(size: Self.symbolSize(inPanel: proxy.size.height),
+                                  weight: .semibold, design: .rounded))
+                    .foregroundStyle(isPlaying ? IslandTheme.played : IslandTheme.tertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.35)
+                    .contentTransition(.numericText())
+                Text(model.displayDetail)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(IslandTheme.secondary)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 130)
+            // The other ways to read the same keys, quietly. `A C E G` is Am7
+            // and it is C6/A, and which one you meant is context the notes do
+            // not carry -- so the display should not pretend to be sure.
+            VStack(alignment: .trailing, spacing: 1) {
+                ForEach(Array(model.alternatives.prefix(2).enumerated()), id: \.offset) { _, other in
+                    Text(other.chord.symbol(naming: .letters, in: model.key, unicode: true))
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(IslandTheme.tertiary)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(14)
+            // Which inversion, because on a keyboard that is a shape under your
+            // hand rather than a fact about the notes.
+            inversions
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .padding(14)
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: Self.headerHeight)
-        .padding(.horizontal, 24)
+        // Nothing escapes the panel and draws over the keys, whatever the
+        // window is dragged to.
+        .clipped()
+        }
     }
 
-    private var keyboard: some View {
-        MiniPiano(heldNotes: model.heldNotes,
-                  lowNote: model.keyboardLowNote,
-                  octaves: model.keyboardOctaves,
-                  showsOctaveLabels: true,
-                  namesHeldNotes: true,
-                  chord: model.chord,
-                  velocities: model.velocities,
-                  key: model.key)
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(IslandTheme.surfaceHigh)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(IslandTheme.edgeLight, lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.55), radius: 10, y: 4)
-            )
-            .padding(.horizontal, 18)
-            .padding(.bottom, 12)
-            // Takes every point the header and the status line do not need,
-            // between a floor that keeps it visible and a cap that keeps it a
-            // piano.
-            .frame(minHeight: 130, maxHeight: Self.keyboardCap)
-            // Claim the keyboard's own clicks so it does not drag the window.
-            .contentShape(Rectangle())
+    private static let inversionNames = ["root", "1st", "2nd", "3rd"]
+
+    private var inversions: some View {
+        HStack(spacing: 10) {
+            ForEach(Array(Self.inversionNames.enumerated()), id: \.offset) { index, name in
+                let active = isPlaying && model.chord?.inversion == index
+                Text(name)
+                    .font(.system(size: 11, weight: active ? .semibold : .medium, design: .rounded))
+                    .foregroundStyle(active ? IslandTheme.played : IslandTheme.tertiary)
+            }
+        }
     }
 
     /// Not music, but the difference between "nothing is happening" and "the
     /// app is broken". A stuck pedal is otherwise invisible and looks exactly
     /// like the display refusing to let go of a chord.
     private var status: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 7) {
             Circle()
-                .fill(model.isSounding ? IslandTheme.diatonic : IslandTheme.tertiary)
-                .frame(width: 6, height: 6)
+                .fill(isPlaying ? IslandTheme.played : IslandTheme.tertiary)
+                .frame(width: 5, height: 5)
             Text(model.inputLabel)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(IslandTheme.tertiary)
                 .lineLimit(1)
             if model.sustainDown {
                 Text("SUSTAIN")
                     .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .tracking(0.6)
-                    .foregroundStyle(IslandTheme.background)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Capsule().fill(IslandTheme.chromatic))
+                    .tracking(0.5)
+                    .foregroundStyle(IslandTheme.played)
             }
             Spacer(minLength: 0)
         }
         .frame(height: Self.statusHeight)
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 12)
     }
 }

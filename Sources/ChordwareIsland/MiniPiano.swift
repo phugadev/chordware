@@ -10,12 +10,8 @@ import SwiftUI
 /// use to read a keyboard.
 public struct MiniPiano: View {
     public var heldNotes: [Int]
-    /// How held keys are named.
-    public var naming: NoteNaming
-    /// The key, needed when names are relative to it.
+    /// The key, so a held key is labelled the way the music means it.
     public var key: Key?
-    /// Colour held keys by their role rather than all alike.
-    public var usesRoleColors: Bool
     /// Widest a white key may be drawn.
     public var maxWhiteWidth: CGFloat
     public var lowNote: Int
@@ -24,10 +20,9 @@ public struct MiniPiano: View {
     public var showsOctaveLabels: Bool
     /// Name the keys currently held, for teaching and for screen recording.
     public var namesHeldNotes: Bool
-    /// Colours held keys by their role in this chord, when there is one.
+    /// Only for spelling the labels: Bb and A# are the same key and not the
+    /// same note. Nothing here is coloured by what a note is doing.
     public var chord: Chord?
-    /// Velocity per note. A harder strike shows as a more saturated key.
-    public var velocities: [Int: Int]
 
     /// C2 to C6, which covers where chords are actually voiced.
     private static let defaultLow = 36
@@ -43,20 +38,14 @@ public struct MiniPiano: View {
                 showsOctaveLabels: Bool = false,
                 namesHeldNotes: Bool = false,
                 chord: Chord? = nil,
-                velocities: [Int: Int] = [:],
-                naming: NoteNaming = .letters,
                 key: Key? = nil,
-                usesRoleColors: Bool = true,
                 maxWhiteWidth: CGFloat = PianoLayout.maxWhiteWidth) {
         self.heldNotes = heldNotes
-        self.naming = naming
         self.key = key
-        self.usesRoleColors = usesRoleColors
         self.maxWhiteWidth = maxWhiteWidth
         self.showsOctaveLabels = showsOctaveLabels
         self.namesHeldNotes = namesHeldNotes
         self.chord = chord
-        self.velocities = velocities
 
         let lowest = min(heldNotes.min() ?? Self.defaultLow, Self.defaultLow)
         let highest = max(heldNotes.max() ?? Self.defaultHigh, Self.defaultHigh)
@@ -66,146 +55,49 @@ public struct MiniPiano: View {
         self.octaves = octaves ?? max(1, (ceilC - floorC) / 12)
     }
 
-    /// The visible face on the front of a white key.
-    private let lipHeight: CGFloat = 3
-
     public var body: some View {
         Canvas { context, size in
             let layout = PianoLayout(lowNote: lowNote, octaves: octaves, size: size,
                                      maxWhiteWidth: maxWhiteWidth)
             let held = Set(heldNotes)
+            let radius: CGFloat = 2
 
-            // Keys are drawn as keys, always. Dimming the ones outside the key
-            // signature was tried and it reads as damage rather than as
-            // annotation: in F major every B natural went dark, which looks
-            // exactly like a rendering fault sitting next to every C. Scale
-            // membership is a dot instead, which is clearly deliberate.
-            func heldColor(_ note: Int) -> Color {
-                let role = chord?.role(of: PitchClass(note))
-                let base = IslandTheme.roleColor(usesRoleColors ? role : nil)
-                guard let velocity = velocities[note] else { return base }
-                // Never below three-quarters. Velocity is a nuance on top of
-                // "this key is down"; fading the colour towards the key
-                // underneath makes a softly played note look like one that
-                // failed to draw, which is the more expensive mistake.
-                let strength = 0.78 + 0.22 * (Double(velocity) / 127.0)
-                return base.opacity(min(1, strength))
-            }
-
-            // Keys are drawn as objects with a top, a front and an edge,
-            // rather than as filled rectangles. A piano is the largest thing in
-            // this window and a flat rounded rect reads as a wireframe of one.
-            let radius = min(3.0, layout.whiteKeys.first?.rect.width ?? 3 / 6)
-
-            // The keybed the keys sit in, so they are in something rather than
-            // floating on the background.
-            context.fill(Path(CGRect(x: 0, y: 0, width: size.width, height: size.height)),
+            context.fill(Path(CGRect(origin: .zero, size: size)),
                          with: .color(IslandTheme.surfaceHigh))
 
+            // A held key is filled, and that is the whole of it.
+            //
+            // It used to sink two points, take a shadow gradient under the
+            // finger, a lit bevel above its front lip and a blurred glow off
+            // its edges. All of that says "this key moved", which is not the
+            // question -- you can feel that, your finger is on it. The question
+            // is *which* keys, answered by one flat vivid colour that reads from
+            // across a room and cannot be mistaken for a rendering fault.
             for key in layout.whiteKeys {
                 let rect = key.rect.insetBy(dx: 0.5, dy: 0)
-                let pressed = held.contains(key.note)
-                // A pressed key sinks: it starts lower and ends at the same
-                // place, so the front lip shortens the way a real one does.
-                let top = pressed ? rect.minY + 2 : rect.minY
-                let body = CGRect(x: rect.minX, y: top, width: rect.width,
-                                  height: rect.maxY - top)
-                let path = Path(roundedRect: body, cornerRadius: radius)
-
-                if pressed {
-                    context.fill(path, with: .color(heldColor(key.note)))
-                    // Deep in shadow at the back, where the finger is, opening
-                    // out towards the front. A flat fill of the same colour
-                    // reads as coloured paper laid on the key rather than as
-                    // the key itself going down.
-                    context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color.black.opacity(0.42), .clear]),
-                        startPoint: CGPoint(x: body.midX, y: body.minY),
-                        endPoint: CGPoint(x: body.midX, y: body.minY + body.height * 0.62)))
-                    // The front face, in shadow because the key has tipped
-                    // away, with the bevel above it catching the light. Two
-                    // lines is all it takes for a rectangle to have a front.
-                    let lip = CGRect(x: body.minX, y: body.maxY - lipHeight,
-                                     width: body.width, height: lipHeight)
-                    context.fill(Path(roundedRect: lip, cornerRadius: radius),
-                                 with: .color(Color.black.opacity(0.34)))
-                    context.fill(Path(CGRect(x: body.minX + 0.5, y: lip.minY - 1,
-                                             width: body.width - 1, height: 1)),
-                                 with: .color(Color.white.opacity(0.34)))
+                let path = Path(roundedRect: rect, cornerRadius: radius)
+                if held.contains(key.note) {
+                    context.fill(path, with: .color(IslandTheme.played))
                 } else {
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color(red: 0.945, green: 0.950, blue: 0.960),
-                                          Color(red: 0.800, green: 0.810, blue: 0.830)]),
-                        startPoint: CGPoint(x: body.midX, y: body.minY),
-                        endPoint: CGPoint(x: body.midX, y: body.maxY)))
-                    // The front lip: the face you actually see on an upright.
-                    let lip = CGRect(x: body.minX, y: body.maxY - lipHeight,
-                                     width: body.width, height: lipHeight)
-                    context.fill(Path(roundedRect: lip, cornerRadius: radius),
-                                 with: .color(Color(red: 0.700, green: 0.712, blue: 0.735)))
+                        Gradient(colors: [Color(red: 0.965, green: 0.968, blue: 0.972),
+                                          Color(red: 0.870, green: 0.878, blue: 0.890)]),
+                        startPoint: CGPoint(x: rect.midX, y: rect.minY),
+                        endPoint: CGPoint(x: rect.midX, y: rect.maxY)))
                 }
-                // Hairline between keys instead of a gap.
                 context.stroke(path, with: .color(Color.black.opacity(0.35)), lineWidth: 0.5)
             }
 
             for key in layout.blackKeys {
-                let pressed = held.contains(key.note)
-                let top = pressed ? key.rect.minY + 1.5 : key.rect.minY
-                let body = CGRect(x: key.rect.minX, y: top, width: key.rect.width,
-                                  height: key.rect.maxY - top)
-                let path = Path(roundedRect: body, cornerRadius: radius)
-
-                // Cast onto the white keys either side, which is most of what
-                // makes a black key read as sitting above them.
-                let shadow = CGRect(x: body.minX - 1, y: body.minY,
-                                    width: body.width + 2, height: body.height + 2)
-                context.fill(Path(roundedRect: shadow, cornerRadius: radius),
-                             with: .color(Color.black.opacity(0.30)))
-
-                if pressed {
-                    context.fill(path, with: .color(heldColor(key.note)))
-                    context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color.black.opacity(0.38), .clear]),
-                        startPoint: CGPoint(x: body.midX, y: body.minY),
-                        endPoint: CGPoint(x: body.midX, y: body.midY)))
-                    // The same lit bevel the unpressed keys have, so a pressed
-                    // black key is still recognisably one of them.
-                    let cap = CGRect(x: body.minX + 1, y: body.maxY - body.height * 0.09,
-                                     width: body.width - 2, height: body.height * 0.06)
-                    context.fill(Path(roundedRect: cap, cornerRadius: 1),
-                                 with: .color(Color.white.opacity(0.30)))
+                let path = Path(roundedRect: key.rect, cornerRadius: radius)
+                if held.contains(key.note) {
+                    context.fill(path, with: .color(IslandTheme.played))
                 } else {
                     context.fill(path, with: .linearGradient(
-                        Gradient(colors: [Color(red: 0.175, green: 0.182, blue: 0.205),
-                                          Color(red: 0.055, green: 0.058, blue: 0.070)]),
-                        startPoint: CGPoint(x: body.midX, y: body.minY),
-                        endPoint: CGPoint(x: body.midX, y: body.maxY)))
-                    // The lit top edge, where the light catches the bevel.
-                    let cap = CGRect(x: body.minX + 1, y: body.maxY - body.height * 0.10,
-                                     width: body.width - 2, height: body.height * 0.07)
-                    context.fill(Path(roundedRect: cap, cornerRadius: 1),
-                                 with: .color(Color.white.opacity(0.16)))
-                }
-            }
-
-            // A struck key throws light onto what is around it, and that is
-            // the single thing separating a keyboard being played from a
-            // diagram of one.
-            //
-            // A blurred copy of the key's own shape, not a big soft ellipse
-            // centred on it. The ellipse version spread light across two keys
-            // either side and, added onto white keys that are already near the
-            // top of the range, came out as a milky smear rather than as glow.
-            // Light that hugs the edge it is coming off is the whole effect;
-            // past about a key's width it is haze.
-            context.drawLayer { glow in
-                glow.blendMode = .plusLighter
-                glow.addFilter(.blur(radius: 5))
-                for key in layout.keys where held.contains(key.note) {
-                    let colour = heldColor(key.note)
-                    glow.fill(Path(roundedRect: key.rect.insetBy(dx: -0.5, dy: -0.5),
-                                   cornerRadius: radius),
-                              with: .color(colour.opacity(0.22)))
+                        Gradient(colors: [Color(red: 0.185, green: 0.192, blue: 0.205),
+                                          Color(red: 0.055, green: 0.058, blue: 0.066)]),
+                        startPoint: CGPoint(x: key.rect.midX, y: key.rect.minY),
+                        endPoint: CGPoint(x: key.rect.midX, y: key.rect.maxY)))
                 }
             }
 
@@ -214,18 +106,17 @@ public struct MiniPiano: View {
             if namesHeldNotes, whiteWidth >= 11 {
                 for key in layout.keys where held.contains(key.note) {
                     // Prefer the chord's own spelling, so a keyboard label and
-                    // the note list cannot disagree about Bb versus A#.
+                    // the chord name cannot disagree about Bb versus A#.
                     let spelling = chord?.spellingByPitchClass[PitchClass(key.note).value]
-                    let name = spelling.map { naming.name($0, in: self.key, unicode: true) }
-                        ?? naming.name(PitchClass(key.note), in: self.key, unicode: true)
-                    // White on every held key. It used to be black on the
-                    // white ones, which was right when they were pale and is
-                    // unreadable now they are not.
+                    let name = spelling.map { NoteNaming.letters.name($0, in: self.key, unicode: true) }
+                        ?? NoteNaming.letters.name(PitchClass(key.note), in: self.key, unicode: true)
                     let text = Text(name)
-                        .font(.system(size: min(11, whiteWidth * 0.7),
+                        .font(.system(size: min(11, whiteWidth * 0.62),
                                       weight: .bold, design: .rounded))
                         .foregroundStyle(Color.white)
-                    let y = key.isBlack ? key.rect.maxY - 10 : size.height - 10
+                    // Black keys are short, so their label sits at their own
+                    // foot; white keys carry theirs at the bottom of the board.
+                    let y = key.isBlack ? key.rect.maxY - 9 : size.height - 9
                     context.draw(text, at: CGPoint(x: key.rect.midX, y: y), anchor: .center)
                 }
             }
@@ -233,17 +124,11 @@ public struct MiniPiano: View {
             guard showsOctaveLabels, size.height >= 40 else { return }
             for key in layout.whiteKeys where PitchClass(key.note).value == 0 {
                 guard !held.contains(key.note) else { continue }
-                // Octave labels stay absolute landmarks, so a relative system
-                // falls back to letters here.
-                let label = naming == .scaleDegrees
-                    ? MIDINote.name(key.note)
-                    : naming.name(PitchClass(key.note), in: self.key, unicode: true)
-                        + "\(MIDINote.octave(key.note))"
-                let text = Text(label)
-                    .font(.system(size: min(9, key.rect.width * 0.55),
+                let text = Text(MIDINote.name(key.note))
+                    .font(.system(size: min(9, key.rect.width * 0.5),
                                   weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.black.opacity(0.42))
-                context.draw(text, at: CGPoint(x: key.rect.midX, y: size.height - 9),
+                    .foregroundStyle(Color.black.opacity(0.40))
+                context.draw(text, at: CGPoint(x: key.rect.midX, y: size.height - 8),
                              anchor: .center)
             }
         }

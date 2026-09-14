@@ -20,7 +20,7 @@ func runIslandTests(_ t: Harness) {
             t.equal(model.chord?.symbol(), "Dm", "and it updates")
         }
 
-        t.test("releasing every note puts the keys out but keeps the chord") {
+        t.test("releasing every note empties the readout and closes the event") {
             let model = IslandModel()
             let notes = MIDINote.parseList("C4 E4 G4")!
             model.present(candidates: ChordDetector.detect(midiNotes: notes),
@@ -28,10 +28,12 @@ func runIslandTests(_ t: Harness) {
             model.clearNotes(atMs: 1200)
             t.check(model.heldNotes.isEmpty, "no notes held")
             t.check(!model.isSounding, "nothing sounding")
-            // Deliberate: lifting your hands must not wipe the readout, or the
-            // window is unusable for showing someone what you just played.
-            t.equal(model.chord?.symbol(), "C", "the chord stays on screen")
-            t.equal(model.progression.events.first?.durationMs, 1200, "event closed with a duration")
+            // A chord name with no keys lit under it cannot be told apart from
+            // a display that has frozen. What was played is in the capture.
+            t.check(model.chord == nil, "the readout goes back to empty")
+            t.check(model.isEmpty, "which is the state the dashes are drawn for")
+            t.equal(model.progression.events.first?.durationMs, 1200,
+                    "but the event is still closed with a duration")
         }
 
         t.test("preview data populates every surface the window renders") {

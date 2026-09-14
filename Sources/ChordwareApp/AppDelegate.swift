@@ -27,7 +27,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var demo: DemoDriver?
     private var companion: CompanionWindowController?
     private var menuBar: MenuBarController?
-    private var companionHotKey: GlobalHotKey?
+    /// Held, or the Carbon handlers are torn down the moment these go out of
+    /// scope and the shortcuts stop working.
+    private var hotKeys: [GlobalHotKey] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let arguments = CommandLine.arguments
@@ -77,15 +79,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.install()
         self.menuBar = menuBar
 
-        // Control-Option-Command-C. The status item is unreachable on a
-        // notched MacBook with a busy menu bar, so there has to be another way
-        // in that does not depend on menu bar real estate.
-        let hotKey = GlobalHotKey {
-            companion.isFrontmost ? companion.close() : companion.show()
+        // Everything the app can do, reachable without the menu bar.
+        //
+        // Chordware has no Dock icon, and on a MacBook with a full menu bar its
+        // status item is pushed behind the notch where it cannot be clicked --
+        // which leaves the app running with no way to reach it at all. These do
+        // not depend on any of that being visible.
+        let modifiers = UInt32(cmdKey | optionKey | controlKey)
+        let shortcuts: [(Int, () -> Void)] = [
+            // Show or hide the window.
+            (kVK_ANSI_C, { companion.isFrontmost ? companion.close() : companion.show() }),
+            // Keep it above the DAW, or stop.
+            (kVK_ANSI_T, { companion.setAlwaysOnTop(!companion.isAlwaysOnTop) }),
+            // Panic: for a Note Off that never arrived or a pedal that never
+            // came up, both of which leave keys lit with nothing sounding.
+            (kVK_ANSI_K, { [weak self] in
+                self?.bridge?.session.panic()
+                self?.model.clearChord()
+            }),
+        ]
+        for (code, action) in shortcuts {
+            let hotKey = GlobalHotKey(action: action)
+            // Registration fails silently when another app already owns the
+            // combination, and a shortcut that does nothing is worse here than
+            // anywhere else: it is the only way in when the status item is
+            // hidden behind the notch. Say so where it can be read.
+            if !hotKey.register(keyCode: UInt32(code), modifiers: modifiers) {
+                FileHandle.standardError.write(Data(
+                    "chordware: shortcut for key code \(code) is already taken\n".utf8))
+            }
+            hotKeys.append(hotKey)
         }
-        hotKey.register(keyCode: UInt32(kVK_ANSI_C),
-                        modifiers: UInt32(cmdKey | optionKey | controlKey))
-        companionHotKey = hotKey
 
         // The window is the app. It used to be optional because there was an
         // island above the menu bar showing the chord; with that gone, starting
