@@ -71,7 +71,10 @@ public enum Renderer {
                                        size: CGSize = CGSize(width: 900, height: 272)) throws -> URL? {
         let model = PreviewData.model()
         model.isSounding = sounding
-        if !sounding { model.heldNotes = [] }
+        // Hands off the keys: the readout empties, so this is the same picture
+        // as nothing having been played. Kept as its own fixture because it is
+        // reached by a different route.
+        if !sounding { model.clearNotes(atMs: 0) }
         if let notes {
             if notes.count >= 3 {
                 model.present(candidates: ChordDetector.detect(midiNotes: notes),

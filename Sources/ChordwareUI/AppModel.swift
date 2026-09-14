@@ -36,13 +36,60 @@ public final class AppModel {
     /// outlived the next thing you played would be a lie about that.
     public var inspecting: ChordEvent?
 
+    /// What the readout is naming, which lags what is held by a breath.
+    ///
+    /// Fingers overlap. Playing a run, the next key goes down a few
+    /// milliseconds before the last comes up, and for those milliseconds two
+    /// notes really are held -- so the readout named an interval nobody
+    /// played, then a chord, then a blank, several times a second. Measured on
+    /// twelve seconds of real playing: eighty-eight readings, most of them on
+    /// screen for under a quarter of a second and a good few under five
+    /// milliseconds.
+    ///
+    /// The keys are not delayed. They show what is physically down, and lag
+    /// there would feel like a missed note. Only the name waits, because a
+    /// name is for reading and nothing readable happens in 5ms.
+    private var readingNotes: [Int] = []
+    private var readingCandidates: [ChordCandidate] = []
+    private var readingGeneration = 0
+
+    /// How long a reading must survive to be worth naming. Settable so tests
+    /// can take the wait out rather than sleep through it.
+    public var readingDelay: TimeInterval = 0.05
+
     public init() {}
 
     public var chord: Chord? { candidates.first?.chord }
 
-    /// What the readout and the keyboard should show: the chord being inspected
-    /// if there is one, otherwise whatever is under your hands.
-    public var shownChord: Chord? { inspecting?.chord ?? chord }
+    /// The chord the readout is naming.
+    public var shownChord: Chord? { inspecting?.chord ?? readingCandidates.first?.chord }
+
+    /// What the readout names. Lags `shownNotes` by `readingDelay`.
+    public var readoutNotes: [Int] { inspecting?.notes ?? readingNotes }
+
+    private func scheduleReading(candidates: [ChordCandidate], notes: [Int]) {
+        readingGeneration &+= 1
+        // Already on screen: only the reading of it can have changed -- a chord
+        // settling, say -- and that must not wait, or a chord would be named
+        // well after its own notes.
+        guard notes != readingNotes else {
+            readingCandidates = candidates
+            return
+        }
+        guard readingDelay > 0 else {
+            readingNotes = notes
+            readingCandidates = candidates
+            return
+        }
+        let generation = readingGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + readingDelay) { [weak self] in
+            guard let self, self.readingGeneration == generation else { return }
+            self.readingNotes = notes
+            self.readingCandidates = candidates
+        }
+    }
+
+    /// What the keyboard lights: exactly what is down, with no delay.
     public var shownNotes: [Int] {
         guard let inspecting else { return heldNotes }
         // Events carry the notes that were actually played, which is the point
@@ -80,12 +127,12 @@ public final class AppModel {
     /// exactly what the viewer needs to see.
     public var displaySymbol: String {
         if let chord = shownChord { return chord.symbol(naming: naming, in: key, unicode: true) }
-        switch shownNotes.count {
+        switch readoutNotes.count {
         case 0: return "\u{2013}\u{2009}\u{2013}\u{2009}\u{2013}"
         case 1:
-            return naming.name(PitchClass(shownNotes[0]), in: key, unicode: true)
+            return naming.name(PitchClass(readoutNotes[0]), in: key, unicode: true)
         default:
-            let names = shownNotes.sorted().map {
+            let names = readoutNotes.sorted().map {
                 naming.name(PitchClass($0), in: key, unicode: true)
             }
             return names.joined(separator: "\u{2009}\u{2013}\u{2009}")
@@ -104,17 +151,17 @@ public final class AppModel {
                 .map { naming.name($0.note, in: key, unicode: true) }.joined(separator: " ")
             return letters + suffix
         }
-        switch shownNotes.count {
+        switch readoutNotes.count {
         case 0: return ""
         case 1:
             // Spelled through exactly the same call as `displaySymbol`, so the
             // two lines cannot disagree. They did: Bb in the chord, A#2 in the
             // caption under it, for one key held.
-            let note = shownNotes[0]
+            let note = readoutNotes[0]
             let name = naming.name(PitchClass(note), in: key, unicode: true)
             return "single note \u{00B7} \(name)\(MIDINote.octave(note))" + suffix
         case 2:
-            let interval = ChordDetector.describeDyad(midiNotes: shownNotes)
+            let interval = ChordDetector.describeDyad(midiNotes: readoutNotes)
                 .map { "interval \u{00B7} \($0)" } ?? "two notes"
             return interval + suffix
         default: return "no chord matches these notes" + suffix
@@ -136,7 +183,7 @@ public final class AppModel {
                 NoteNaming.fixedDo.name($0.note, in: key, unicode: true)
             }
         } else {
-            syllables = shownNotes.sorted().map {
+            syllables = readoutNotes.sorted().map {
                 NoteNaming.fixedDo.name(PitchClass($0), in: key, unicode: true)
             }
         }
@@ -148,7 +195,7 @@ public final class AppModel {
     /// reserves room for a chord, its notes and its scales, and filling that
     /// room with labelled but empty slots -- "NOTES / nothing held", "SCALES
     /// THAT FIT / -" -- shows the scaffolding rather than the app.
-    public var isEmpty: Bool { shownChord == nil && shownNotes.isEmpty }
+    public var isEmpty: Bool { shownChord == nil && readoutNotes.isEmpty }
 
 
     /// Show notes that do not form a nameable chord, so a single key still
@@ -158,6 +205,7 @@ public final class AppModel {
         heldNotes = notes
         isSounding = !notes.isEmpty
         if !notes.isEmpty { inspecting = nil }
+        scheduleReading(candidates: [], notes: notes)
     }
 
     /// Push a new detection into the island, moving it out of idle.
@@ -167,6 +215,7 @@ public final class AppModel {
         self.heldNotes = heldNotes
         isSounding = !heldNotes.isEmpty
         if !heldNotes.isEmpty { inspecting = nil }
+        scheduleReading(candidates: candidates, notes: heldNotes)
         // Only a settled chord goes into the history. A hand landing on G major
         // passes through B minor on its way, and a progression strip full of
         // chords nobody played is worse than no strip at all.
@@ -188,6 +237,10 @@ public final class AppModel {
         heldNotes = []
         isSounding = false
         candidates = []
+        // Through the same wait as everything else: the gaps between notes in a
+        // run are a few milliseconds, and blanking the readout in them is the
+        // same flicker seen from the other side.
+        scheduleReading(candidates: [], notes: [])
         progression.close(atMs: time)
     }
 
@@ -207,5 +260,9 @@ public final class AppModel {
         candidates = []
         heldNotes = []
         isSounding = false
+        // Panic and a lost device are deliberate; they do not wait.
+        readingGeneration &+= 1
+        readingNotes = []
+        readingCandidates = []
     }
 }

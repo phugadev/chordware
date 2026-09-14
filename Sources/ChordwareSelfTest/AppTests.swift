@@ -10,6 +10,7 @@ func runAppTests(_ t: Harness) {
     t.suite("Window model") {
         t.test("a new chord replaces the one on screen") {
             let model = AppModel()
+            model.readingDelay = 0      // assert the readout, not the wait
             let notes = MIDINote.parseList("C4 E4 G4")!
             model.present(candidates: ChordDetector.detect(midiNotes: notes),
                           heldNotes: notes, atMs: 0)
@@ -23,6 +24,7 @@ func runAppTests(_ t: Harness) {
 
         t.test("releasing every note empties the readout and closes the event") {
             let model = AppModel()
+            model.readingDelay = 0
             let notes = MIDINote.parseList("C4 E4 G4")!
             model.present(candidates: ChordDetector.detect(midiNotes: notes),
                           heldNotes: notes, atMs: 0)
@@ -337,7 +339,11 @@ func runLiveSessionTests(_ t: Harness) {
     func off(_ n: Int) -> MIDIMessage { .noteOff(note: n, channel: 0) }
 
     /// Play a phrase and report what got written into the history.
-    func recorded(_ messages: [MIDIMessage]) -> [String] {
+    ///
+    /// `hold` is real time, because the engine judges a chord by how long it
+    /// was down and there is no way to ask that question without waiting.
+    func recorded(_ messages: [MIDIMessage], hold: TimeInterval = 0,
+                  then rest: [MIDIMessage] = []) -> [String] {
         let session = LiveSession()
         var progression = Progression()
         session.onUpdate = { update in
@@ -345,12 +351,15 @@ func runLiveSessionTests(_ t: Harness) {
             progression.append(chord, atMs: update.timeMs, notes: update.notes)
         }
         for message in messages { session.ingest(message) }
+        if hold > 0 { Thread.sleep(forTimeInterval: hold) }
+        for message in rest { session.ingest(message) }
         return progression.events.map { $0.chord.symbol() }
     }
 
     t.suite("losing the keyboard") {
         t.test("unplugging mid-chord leaves nothing lit and nothing named") {
             let model = AppModel()
+            model.readingDelay = 0
             let notes = MIDINote.parseList("C4 E4 G4")!
             model.present(candidates: ChordDetector.detect(midiNotes: notes),
                           heldNotes: notes, atMs: 0)
@@ -392,13 +401,34 @@ func runLiveSessionTests(_ t: Harness) {
             // The release guard only covered sets of fewer than three notes, so
             // four-to-three slipped past it, scheduled a settle, and that settle
             // was then forced through on the way out.
-            let played = recorded([on(51), on(67), on(70), on(74),
-                                   off(51), off(67), off(70), off(74)])
+            // Held long enough to be a chord anyone meant, then released
+            // inside the settle window: a staccato stab.
+            let played = recorded([on(51), on(67), on(70), on(74)],
+                                  hold: 0.08,
+                                  then: [off(51), off(67), off(70), off(74)])
             t.check(!played.contains("Gm"), "no Gm invented on the way down: \(played)")
             // And the chord itself still lands. This phrase is released inside
             // the settle window, which is a staccato chord and still a chord
             // that was played.
             t.equal(played, ["Ebmaj7"], "exactly the chord that was played")
+        }
+
+        t.test("three keys overlapping for a few milliseconds is not a chord") {
+            // From twelve seconds of a real Kompa solo: the only two moments
+            // with three keys down lasted 4.7ms each, the next finger landing
+            // before the last had left. Both were being written into the
+            // history as chords that were played.
+            let played = recorded([on(62), on(64), on(65),
+                                   off(62), off(64), off(65)])
+            t.check(played.isEmpty, "a run is not a chord: \(played)")
+
+            // And the same overlap in the middle of a phrase, where the run
+            // carries on afterwards. Timing the teardown rather than the chord
+            // made this one look like a chord held for a tenth of a second.
+            let phrase = recorded([on(62), on(64), on(65)],
+                                  hold: 0.005,
+                                  then: [off(62), off(64), off(65), on(67)])
+            t.check(phrase.isEmpty, "still not a chord mid-phrase: \(phrase)")
         }
 
         t.test("lifting a chord does not name its leftovers") {

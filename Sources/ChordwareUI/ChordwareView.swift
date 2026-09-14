@@ -34,7 +34,9 @@ public struct ChordwareView: View {
         min(76, max(32, height * 0.42))
     }
 
-    private var isPlaying: Bool { !model.shownNotes.isEmpty }
+    /// Follows the readout, not the keys, so the colour and the words it
+    /// colours always agree about whether anything is being played.
+    private var isPlaying: Bool { !model.readoutNotes.isEmpty }
 
     public var body: some View {
         VStack(spacing: 0) {

@@ -59,6 +59,10 @@ public final class LiveSession {
     /// fragment happened to be down last.
     private var anchorCandidates: [ChordCandidate] = []
     private var anchorSettled = false
+    private var anchorStarted: TimeInterval = 0
+    /// How long the chord was down *complete*, measured when it first shrinks.
+    /// Zero while it is still fully held.
+    private var anchorHeld: TimeInterval = 0
     private let started = Date()
 
     public init() {
@@ -118,6 +122,14 @@ public final class LiveSession {
 
     private func analyseHeldNotes() {
         let notes = held.sounding
+        // The moment the chord stops being complete is the moment it stopped
+        // being held, whatever happens afterwards. Timing the teardown instead
+        // measures how long the run took to move on, which let a four
+        // millisecond finger overlap look like a chord held for a tenth of a
+        // second.
+        if anchorHeld == 0, !chordAnchor.isEmpty, Set(notes) != chordAnchor {
+            anchorHeld = Date().timeIntervalSince(started) - anchorStarted
+        }
         // Taking a chord off the keys uncovers fragments of it, and analysing
         // those fragments names chords nobody played: lift the D from a D minor
         // triad and the F and A left behind read as F major. The fragment that
@@ -146,14 +158,16 @@ public final class LiveSession {
             // unless what is pending is the wreckage of the last one on its way
             // down, which is how G-Bb-D from a released Ebmaj7 ended up in the
             // history as a Gm nobody played.
+            // Played and let go inside the settle window. That is a staccato
+            // chord and worth recording -- but only if it was a chord. Both
+            // ways in need the same floor: the fragment path and the direct one
+            // are the same claim, that something too short to settle was still
+            // meant.
             if hasPendingSettle {
                 if !pendingIsRelease {
                     settle()
                 } else if !anchorSettled, !anchorCandidates.isEmpty {
-                    // Played and let go inside the settle window -- a staccato
-                    // chord. It is still a chord that was played, so record it,
-                    // but record the chord, not the two notes that happened to
-                    // come off last.
+                    // Record the chord, not the two notes that came off last.
                     candidates = anchorCandidates
                     settle()
                 }
@@ -177,6 +191,8 @@ public final class LiveSession {
         if !release {
             anchorCandidates = candidates
             anchorSettled = false
+            anchorStarted = Date().timeIntervalSince(started)
+            anchorHeld = 0
         }
         publish(notes: notes)
         scheduleSettle(isRelease: release)
@@ -210,10 +226,27 @@ public final class LiveSession {
     /// holding what is left still counts as a chord you played.
     private static let releaseSettleDelay: TimeInterval = 0.40
 
+    /// Below this, three keys being down together was not a chord.
+    ///
+    /// Playing a run, the next finger lands before the last leaves. Measured on
+    /// twelve seconds of a real solo: the only two moments with three keys down
+    /// lasted four and a half milliseconds each, and both were recorded as
+    /// chords -- the same overlap that was flickering the readout, arriving in
+    /// the history instead. A staccato stab is eighty milliseconds and up; this
+    /// is well under anything anyone means.
+    private static let minimumChordDuration: TimeInterval = 0.06
+
     private func settle() {
         let wasRelease = pendingIsRelease
         hasPendingSettle = false
         pendingIsRelease = false
+        // A chord that stopped being complete before it had been held is not a
+        // chord: the next finger landed before the last one left, that is all.
+        // Checked here rather than at the call sites because there are three of
+        // them -- the timer, the release timer, and the way out -- and the
+        // first one is what put a Dm(add9) in the history of a solo, firing a
+        // tenth of a second after a four millisecond overlap had already gone.
+        guard anchorHeld == 0 || anchorHeld >= Self.minimumChordDuration else { return }
         guard let chord = candidates.first?.chord else { return }
         if !wasRelease { anchorSettled = true }
         keyEstimator.observe(chord: chord, at: Date().timeIntervalSince(started))

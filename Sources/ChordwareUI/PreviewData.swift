@@ -10,6 +10,9 @@ import Foundation
 public enum PreviewData {
     public static func model() -> AppModel {
         let model = AppModel()
+        // Rendering is synchronous and cannot wait for the readout's debounce,
+        // so fixtures take it out rather than come back blank.
+        model.readingDelay = 0
         let key = Key(tonic: SpelledNote("C")!, mode: .major)
         model.key = key
         model.inputLabel = "MIDI"
@@ -29,13 +32,13 @@ public enum PreviewData {
         }
 
         let notes = MIDINote.parseList("C3 E4 G4 Bb4 D5 A5") ?? []
-        model.heldNotes = notes
-        model.candidates = ChordDetector.detect(
+        // Through the real path, so a fixture cannot show something the app
+        // never could -- which is how the readout's debounce got past the
+        // renders the first time.
+        model.present(candidates: ChordDetector.detect(
             midiNotes: notes,
-            options: ChordDetector.Options(key: key, maxCandidates: 5)
-        )
-
-        model.isSounding = true
+            options: ChordDetector.Options(key: key, maxCandidates: 5)),
+            heldNotes: notes, atMs: 0, settled: false)
         return model
     }
 }
