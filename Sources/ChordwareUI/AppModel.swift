@@ -93,7 +93,9 @@ public final class AppModel {
     }
 
     public var displayDetail: String {
-        if let chord = shownChord { return chord.spokenName(naming: naming, in: key) }
+        let solfege = self.solfege
+        let suffix = solfege.isEmpty ? "" : "  \u{00B7}  " + solfege
+        if let chord = shownChord { return chord.spokenName(naming: naming, in: key) + suffix }
         switch shownNotes.count {
         case 0: return ""
         case 1:
@@ -102,12 +104,35 @@ public final class AppModel {
             // caption under it, for one key held.
             let note = shownNotes[0]
             let name = naming.name(PitchClass(note), in: key, unicode: true)
-            return "single note \u{00B7} \(name)\(MIDINote.octave(note))"
+            return "single note \u{00B7} \(name)\(MIDINote.octave(note))" + suffix
         case 2:
-            return ChordDetector.describeDyad(midiNotes: shownNotes).map { "interval \u{00B7} \($0)" }
-                ?? "two notes"
-        default: return "no chord matches these notes"
+            let interval = ChordDetector.describeDyad(midiNotes: shownNotes)
+                .map { "interval \u{00B7} \($0)" } ?? "two notes"
+            return interval + suffix
+        default: return "no chord matches these notes" + suffix
         }
+    }
+
+    /// The same notes again in fixed do, so the two naming systems can be
+    /// learned against each other rather than one at a time.
+    ///
+    /// The chord's own tones when there is a chord -- Dm7 is Re Fa La Do
+    /// whichever octave you voiced it in -- and otherwise whatever is held.
+    /// Fixed do, so Do is always C: the movable kind would make the same key
+    /// a different syllable in every key, which is a second thing to learn
+    /// rather than a way into the first.
+    private var solfege: String {
+        let syllables: [String]
+        if let chord = shownChord {
+            syllables = chord.spelledTones.map {
+                NoteNaming.fixedDo.name($0.note, in: key, unicode: true)
+            }
+        } else {
+            syllables = shownNotes.sorted().map {
+                NoteNaming.fixedDo.name(PitchClass($0), in: key, unicode: true)
+            }
+        }
+        return syllables.joined(separator: " ")
     }
     /// Nothing has been played and nothing is held.
     ///

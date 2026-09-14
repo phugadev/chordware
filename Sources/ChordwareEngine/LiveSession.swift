@@ -51,6 +51,14 @@ public final class LiveSession {
     /// Bumped on every change, so a pending settle knows it is stale.
     private var settleGeneration = 0
     private var hasPendingSettle = false
+    /// True while the pending settle belongs to a set shrinking out of the
+    /// chord in hand rather than to a chord being played.
+    private var pendingIsRelease = false
+    /// The reading for the chord as it was fully held, kept so a chord let go
+    /// before it could settle is recorded as itself rather than as whatever
+    /// fragment happened to be down last.
+    private var anchorCandidates: [ChordCandidate] = []
+    private var anchorSettled = false
     private let started = Date()
 
     public init() {
@@ -134,19 +142,44 @@ public final class LiveSession {
         // reads a dyad out as an interval; let it.
         guard notes.count >= 3 else {
             // A chord let go before it had time to settle is still a chord that
-            // was played, so record it on the way out rather than losing it.
-            if hasPendingSettle { settle() }
+            // was played, so record it on the way out rather than losing it --
+            // unless what is pending is the wreckage of the last one on its way
+            // down, which is how G-Bb-D from a released Ebmaj7 ended up in the
+            // history as a Gm nobody played.
+            if hasPendingSettle {
+                if !pendingIsRelease {
+                    settle()
+                } else if !anchorSettled, !anchorCandidates.isEmpty {
+                    // Played and let go inside the settle window -- a staccato
+                    // chord. It is still a chord that was played, so record it,
+                    // but record the chord, not the two notes that happened to
+                    // come off last.
+                    candidates = anchorCandidates
+                    settle()
+                }
+            }
             candidates = []
             chordAnchor = []
+            anchorCandidates = []
             cancelSettle()
             publish(notes: notes)
             return
         }
+        // Still three notes or more, but every one of them was already part of
+        // the chord in hand: a hand coming off, not a hand arriving. Lift the
+        // Eb from an Ebmaj7 and G-Bb-D is a real reading of what is down, so it
+        // is shown -- but it is not a chord anyone played, and it is given
+        // longer to prove otherwise before it is believed.
+        let release = !chordAnchor.isEmpty && chordAnchor.isStrictSuperset(of: notes)
         let options = ChordDetector.Options(key: effectiveKey, maxCandidates: 5)
         candidates = ChordDetector.detect(midiNotes: notes, options: options)
         chordAnchor = Set(notes)
+        if !release {
+            anchorCandidates = candidates
+            anchorSettled = false
+        }
         publish(notes: notes)
-        scheduleSettle()
+        scheduleSettle(isRelease: release)
     }
 
     /// Show every reading immediately, but only *believe* the settled one.
@@ -157,11 +190,13 @@ public final class LiveSession {
     /// them as chords that were played, and letting them vote on the key, is
     /// not. It fills the progression strip with chords nobody played and drags
     /// the key estimate around behind them.
-    private func scheduleSettle() {
+    private func scheduleSettle(isRelease: Bool = false) {
         settleGeneration &+= 1
         hasPendingSettle = true
+        pendingIsRelease = isRelease
         let generation = settleGeneration
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.settleDelay) { [weak self] in
+        let delay = isRelease ? Self.releaseSettleDelay : Self.settleDelay
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard let self, self.settleGeneration == generation else { return }
             self.settle()
         }
@@ -170,9 +205,17 @@ public final class LiveSession {
     /// Long enough for a hand to finish arriving, short enough to be invisible.
     private static let settleDelay: TimeInterval = 0.14
 
+    /// Long enough that letting go of a chord cannot look like playing the
+    /// smaller one inside it, short enough that deliberately lifting a note and
+    /// holding what is left still counts as a chord you played.
+    private static let releaseSettleDelay: TimeInterval = 0.40
+
     private func settle() {
+        let wasRelease = pendingIsRelease
         hasPendingSettle = false
+        pendingIsRelease = false
         guard let chord = candidates.first?.chord else { return }
+        if !wasRelease { anchorSettled = true }
         keyEstimator.observe(chord: chord, at: Date().timeIntervalSince(started))
         updateKey()
         publish(notes: held.sounding, settled: true)
@@ -183,6 +226,7 @@ public final class LiveSession {
     private func cancelSettle() {
         settleGeneration &+= 1
         hasPendingSettle = false
+        pendingIsRelease = false
     }
 
     // MARK: - Key

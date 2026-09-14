@@ -304,6 +304,18 @@ func runLiveSessionTests(_ t: Harness) {
     func on(_ n: Int) -> MIDIMessage { .noteOn(note: n, velocity: 96, channel: 0) }
     func off(_ n: Int) -> MIDIMessage { .noteOff(note: n, channel: 0) }
 
+    /// Play a phrase and report what got written into the history.
+    func recorded(_ messages: [MIDIMessage]) -> [String] {
+        let session = LiveSession()
+        var progression = Progression()
+        session.onUpdate = { update in
+            guard update.isSettled, let chord = update.candidates.first?.chord else { return }
+            progression.append(chord, atMs: update.timeMs, notes: update.notes)
+        }
+        for message in messages { session.ingest(message) }
+        return progression.events.map { $0.chord.symbol() }
+    }
+
     t.suite("losing the keyboard") {
         t.test("unplugging mid-chord leaves nothing lit and nothing named") {
             let model = AppModel()
@@ -338,6 +350,25 @@ func runLiveSessionTests(_ t: Harness) {
     }
 
     t.suite("live session") {
+        t.test("letting go of a four-note chord does not record the three left") {
+            // Found by playing into the running app and reading the history
+            // strip: every seventh chord left a ghost behind it. Ebmaj7 is
+            // Eb-G-Bb-D; lift the Eb and G-Bb-D is a real reading of what is
+            // still down, so it is shown -- but nobody played a Gm, and it was
+            // going into the history as though they had.
+            //
+            // The release guard only covered sets of fewer than three notes, so
+            // four-to-three slipped past it, scheduled a settle, and that settle
+            // was then forced through on the way out.
+            let played = recorded([on(51), on(67), on(70), on(74),
+                                   off(51), off(67), off(70), off(74)])
+            t.check(!played.contains("Gm"), "no Gm invented on the way down: \(played)")
+            // And the chord itself still lands. This phrase is released inside
+            // the settle window, which is a staccato chord and still a chord
+            // that was played.
+            t.equal(played, ["Ebmaj7"], "exactly the chord that was played")
+        }
+
         t.test("lifting a chord does not name its leftovers") {
             // Releasing the D of a D minor triad leaves F and A sounding, which
             // reads as F major. That fragment used to be published, and because
