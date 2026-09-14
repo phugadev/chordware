@@ -24,6 +24,9 @@ public struct MiniPiano: View {
     /// same note. Nothing here is coloured by what a note is doing.
     public var chord: Chord?
     public var palette: IslandTheme.Palette
+    /// TRIAL. Label a held key with the octave it is in -- C4, Bb3 -- rather
+    /// than just its letter.
+    public var namesIncludeOctave: Bool
 
     /// C2 to C6, which covers where chords are actually voiced.
     private static let defaultLow = 36
@@ -41,6 +44,7 @@ public struct MiniPiano: View {
                 chord: Chord? = nil,
                 key: Key? = nil,
                 palette: IslandTheme.Palette = IslandTheme.standard,
+                namesIncludeOctave: Bool = false,
                 maxWhiteWidth: CGFloat = PianoLayout.maxWhiteWidth) {
         self.heldNotes = heldNotes
         self.key = key
@@ -49,6 +53,7 @@ public struct MiniPiano: View {
         self.namesHeldNotes = namesHeldNotes
         self.chord = chord
         self.palette = palette
+        self.namesIncludeOctave = namesIncludeOctave
 
         let lowest = min(heldNotes.min() ?? Self.defaultLow, Self.defaultLow)
         let highest = max(heldNotes.max() ?? Self.defaultHigh, Self.defaultHigh)
@@ -113,9 +118,14 @@ public struct MiniPiano: View {
                     let spelling = chord?.spellingByPitchClass[PitchClass(key.note).value]
                     let name = spelling.map { NoteNaming.letters.name($0, in: self.key, unicode: true) }
                         ?? NoteNaming.letters.name(PitchClass(key.note), in: self.key, unicode: true)
-                    let text = Text(name)
-                        .font(.system(size: min(11, whiteWidth * 0.62),
-                                      weight: .bold, design: .rounded))
+                    let label = namesIncludeOctave
+                        ? name + "\(MIDINote.octave(key.note))" : name
+                    // An octave digit is a third character on a key that is
+                    // already narrow, so the type has to give a little.
+                    let pointSize = min(namesIncludeOctave ? 10 : 11,
+                                        whiteWidth * (namesIncludeOctave ? 0.46 : 0.62))
+                    let text = Text(label)
+                        .font(.system(size: pointSize, weight: .bold, design: .rounded))
                         .foregroundStyle(key.isBlack ? palette.blackKeyLabel
                                                      : palette.whiteKeyLabel)
                     // Black keys are short, so their label sits at their own

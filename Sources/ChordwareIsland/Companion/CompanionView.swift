@@ -13,10 +13,28 @@ public struct CompanionView: View {
     /// Defaulted, so the window is one call and the alternatives are one
     /// argument.
     public var palette: IslandTheme.Palette
+    /// TRIAL. Where the last few chords go, if anywhere.
+    public var history: HistoryPlacement
+    /// TRIAL.
+    public var namesIncludeOctave: Bool
 
-    public init(model: IslandModel, palette: IslandTheme.Palette = IslandTheme.standard) {
+    public enum HistoryPlacement: Sendable {
+        /// As it ships today.
+        case none
+        /// Along the foot of the black readout, above the keys.
+        case inReadout
+        /// Its own strip between the keyboard and the device line.
+        case ownStrip
+    }
+
+    public init(model: IslandModel,
+                palette: IslandTheme.Palette = IslandTheme.standard,
+                history: HistoryPlacement = .none,
+                namesIncludeOctave: Bool = false) {
         self.model = model
         self.palette = palette
+        self.history = history
+        self.namesIncludeOctave = namesIncludeOctave
     }
 
     /// A strip, not a wall.
@@ -47,13 +65,15 @@ public struct CompanionView: View {
                       namesHeldNotes: true,
                       chord: model.chord,
                       key: model.key,
-                      palette: palette)
+                      palette: palette,
+                      namesIncludeOctave: namesIncludeOctave)
                 // Edge to edge. The rounded card, its lit border and its drop
                 // shadow were three ways of saying "this is a piano" to
                 // something that already looks like one.
                 .frame(height: Self.keyboardHeight)
                 // Claim the keyboard's own clicks so it does not drag the window.
                 .contentShape(Rectangle())
+            if history == .ownStrip { historyStrip.padding(.top, 6) }
             status
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -89,12 +109,44 @@ public struct CompanionView: View {
                         .lineLimit(1)
                 }
                 .padding(.horizontal, 24)
+                if history == .inReadout {
+                    historyStrip
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                        .padding(.bottom, 10)
+                }
             }
             // Nothing escapes the panel and draws over the keys, whatever the
             // window is dragged to.
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
         }
+    }
+
+    /// TRIAL: the last few chords, oldest on the left.
+    ///
+    /// The one thing actually missed from the panel that was taken out: you
+    /// play something good, look down, and it is already gone. Fixed width per
+    /// chord so the row does not reflow as names change length, and the most
+    /// recent one is the only one at full strength -- the rest are there to be
+    /// read deliberately, not to compete with the chord you are playing now.
+    private var historyStrip: some View {
+        let events = model.progression.tail(8)
+        return HStack(spacing: 6) {
+            Spacer(minLength: 0)
+            ForEach(events) { event in
+                Text(event.chord.symbol(naming: .letters, in: model.key, unicode: true))
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(event.id == events.last?.id
+                                     ? palette.chord : IslandTheme.tertiary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill(Color.white.opacity(0.07)))
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(height: 24)
+        .padding(.horizontal, 12)
     }
 
     /// Not music, but the difference between "nothing is happening" and "the
