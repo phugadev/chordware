@@ -2,7 +2,7 @@
 
 A piano keyboard for your Mac that names what you play.
 
-![Chordware showing a C13 chord, with the keys lit and the last few chords along the bottom](docs/chordware.png)
+![Chordware showing a B♭/D chord, with the keys lit and the last few chords along the bottom](docs/chordware.png)
 
 Play your MIDI keyboard and Chordware shows the chord, lights up the keys you
 are holding, and keeps the last few chords along the bottom. Click one to put it
