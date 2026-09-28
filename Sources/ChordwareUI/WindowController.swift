@@ -90,12 +90,12 @@ public final class WindowController: NSObject, NSWindowDelegate {
         window.isReleasedWhenClosed = false
         window.title = "Chordware"
         window.titlebarAppearsTransparent = true
-        // Visible, like a Mac app's window has always been. It names what you
-        // are looking at when the window is behind something, it gives the
-        // header an obvious place to grab, and a hidden title over a title bar
-        // that is already transparent was just an empty strip nobody could
-        // tell was draggable.
-        window.titleVisibility = .visible
+        // AppKit's own title goes to the left the moment it has a subtitle,
+        // and there is no switch to centre it. So it is hidden and drawn by
+        // `installTitle` instead: still in the title bar, still naming the
+        // window and the device, and centred over the keyboard. `title` stays
+        // set for Mission Control and the Window menu.
+        window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
         window.backgroundColor = NSColor.black
         window.contentMinSize = Self.minimumContent
@@ -111,6 +111,7 @@ public final class WindowController: NSObject, NSWindowDelegate {
         }
 
         self.window = window
+        installTitle(in: window)
         trackStatus()
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
@@ -127,12 +128,43 @@ public final class WindowController: NSObject, NSWindowDelegate {
         model.sustainDown ? model.inputLabel + "  \u{00B7}  sustain" : model.inputLabel
     }
 
+    /// The centred title: "Chordware – device", on one line.
+    private let titleLabel = PassThroughLabel(labelWithString: "")
+
+    /// Put the title label in the title bar itself, centred on the window
+    /// rather than on the space beside the traffic lights.
+    private func installTitle(in window: NSWindow) {
+        guard let titlebar = window.standardWindowButton(.closeButton)?.superview else { return }
+        titleLabel.font = NSFont.titleBarFont(ofSize: 0)
+        titleLabel.alignment = .center
+        titleLabel.lineBreakMode = .byTruncatingTail
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        // Long device names truncate rather than push the window wider.
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        titlebar.addSubview(titleLabel)
+        NSLayoutConstraint.activate([
+            titleLabel.centerXAnchor.constraint(equalTo: titlebar.centerXAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: titlebar.centerYAnchor),
+            // Clear of the traffic lights on both sides, so it stays centred.
+            titleLabel.widthAnchor.constraint(lessThanOrEqualTo: titlebar.widthAnchor, constant: -160),
+        ])
+        updateTitleColor()
+    }
+
+    /// Dimmed when the window is not key, as AppKit's own title is.
+    private func updateTitleColor() {
+        titleLabel.textColor = (window?.isKeyWindow ?? false) ? .labelColor : .tertiaryLabelColor
+    }
+
+    public func windowDidBecomeKey(_ notification: Notification) { updateTitleColor() }
+    public func windowDidResignKey(_ notification: Notification) { updateTitleColor() }
+
     /// Re-arms itself: an observation tracks one change and then stops, so
-    /// without this the subtitle would be correct exactly once.
+    /// without this the title would be correct exactly once.
     private func trackStatus() {
-        guard let window else { return }
+        guard window != nil else { return }
         withObservationTracking {
-            window.subtitle = statusText
+            titleLabel.stringValue = "Chordware \u{2013} " + statusText
         } onChange: { [weak self] in
             Task { @MainActor in self?.trackStatus() }
         }
@@ -173,8 +205,39 @@ public final class WindowController: NSObject, NSWindowDelegate {
         ))
     }
 
+    /// What the green button zooms to: the window's natural size.
+    ///
+    /// AppKit's default is the whole screen, and that frame was then saved and
+    /// restored on the next launch. Opened already at the "zoomed" size, the
+    /// green button had no smaller size to go back to, and the window was stuck
+    /// with a screen's height of empty black above the keys. Now zooming always
+    /// brings it back to the size the layout is drawn for, top edge where it
+    /// was.
+    public func windowWillUseStandardFrame(_ window: NSWindow, defaultFrame newFrame: NSRect) -> NSRect {
+        let size = window.frameRect(forContentRect: NSRect(origin: .zero, size: Self.defaultContent)).size
+        var frame = NSRect(x: window.frame.midX - size.width / 2,
+                           y: window.frame.maxY - size.height,
+                           width: size.width, height: size.height)
+        frame.origin.x = min(max(frame.minX, newFrame.minX), newFrame.maxX - frame.width)
+        frame.origin.y = min(max(frame.minY, newFrame.minY), newFrame.maxY - frame.height)
+        return frame
+    }
+
+    /// The green button resizes without a live resize, so it is saved here too.
+    public func windowDidResize(_ notification: Notification) {
+        guard let window, !window.inLiveResize,
+              !window.styleMask.contains(.fullScreen) else { return }
+        storedFrame = window.frame
+    }
+
     public func windowDidEndLiveResize(_ notification: Notification) {
         guard let window else { return }
         storedFrame = window.frame
     }
+}
+
+/// A title that does not take the mouse, so the title bar under it still drags
+/// the window and a double-click still zooms it.
+final class PassThroughLabel: NSTextField {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
