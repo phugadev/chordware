@@ -78,6 +78,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar.install()
         self.menuBar = menuBar
 
+        // Command-Q while the window is in front. An accessory app shows no
+        // menu bar, but key equivalents still go through its main menu -- and
+        // without one there was nothing for Command-Q to find, so the only way
+        // to quit was the status item's menu.
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Quit Chordware",
+                        action: #selector(NSApplication.terminate(_:)),
+                        keyEquivalent: "q")
+        let appMenuItem = NSMenuItem()
+        appMenuItem.submenu = appMenu
+        let mainMenu = NSMenu()
+        mainMenu.addItem(appMenuItem)
+        NSApp.mainMenu = mainMenu
+
         // Everything the app can do, reachable without the menu bar.
         //
         // Chordware has no Dock icon, and on a MacBook with a full menu bar its
