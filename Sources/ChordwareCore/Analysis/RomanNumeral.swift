@@ -202,9 +202,14 @@ public enum RomanNumeralAnalyzer {
             || (chord.quality.family == .major && chord.quality.id == "maj")
 
         if isDominantType {
-            // A dominant resolves down a fifth.
+            // A dominant resolves down a fifth -- and is only the dominant of
+            // somewhere it goes. G7 in D minor followed by F is IV7 borrowed
+            // from Dorian, not V7/VII on its way to a C that never comes. With
+            // nothing after it yet, the fifth below is still the best guess.
             let resolution = PitchClass(rootPC.value + 5)
-            if resolution != key.tonic.pitchClass || chord.quality.family == .dominant,
+            let resolves = next.map { $0.root.pitchClass == resolution } ?? true
+            if resolves,
+               resolution != key.tonic.pitchClass || chord.quality.family == .dominant,
                let numeral = diatonicNumeral(for: resolution),
                resolution != rootPC {
                 let figureText = figure(for: chord.quality)
@@ -269,9 +274,14 @@ public enum RomanNumeralAnalyzer {
         return nil
     }
 
+    /// Each chord is read against the next one with a different root: G G7 C
+    /// is one dominant moving to C, and the G is V/x as much as the G7 is.
     public static func analyze(_ chords: [Chord], in key: Key) -> [RomanNumeral] {
         chords.enumerated().map { index, chord in
-            analyze(chord, in: key, resolvingTo: index + 1 < chords.count ? chords[index + 1] : nil)
+            let next = chords[(index + 1)...].first {
+                $0.root.pitchClass != chord.root.pitchClass
+            }
+            return analyze(chord, in: key, resolvingTo: next)
         }
     }
 }
