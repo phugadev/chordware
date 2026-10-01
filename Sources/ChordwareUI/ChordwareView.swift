@@ -80,22 +80,26 @@ public struct ChordwareView: View {
         GeometryReader { proxy in
             ZStack {
                 Theme.panel
-                VStack(spacing: 6) {
-                    Text(model.displaySymbol)
-                        .font(.system(size: Self.symbolSize(inPanel: proxy.size.height),
-                                      weight: .semibold, design: .rounded))
-                        .foregroundStyle(isPlaying ? palette.chord : Theme.tertiary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.35)
-                    Text(model.displayDetail)
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(Theme.secondary)
-                        .lineLimit(1)
+                // Stacked, not overlaid: the chord is centred in what the strip
+                // leaves, so the strip cannot be drawn over the line of notes.
+                VStack(spacing: 0) {
+                    VStack(spacing: 6) {
+                        Text(model.displaySymbol)
+                            .font(.system(size: Self.symbolSize(inPanel: proxy.size.height),
+                                          weight: .semibold, design: .rounded))
+                            .foregroundStyle(isPlaying ? palette.chord : Theme.tertiary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.35)
+                        Text(model.displayDetail)
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundStyle(Theme.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 24)
+                    .frame(maxHeight: .infinity)
+                    historyStrip
+                        .padding(.bottom, 10)
                 }
-                .padding(.horizontal, 24)
-                historyStrip
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-                    .padding(.bottom, 10)
             }
             // Nothing escapes the panel and draws over the keys, whatever the
             // window is dragged to.
@@ -113,36 +117,55 @@ public struct ChordwareView: View {
     /// read deliberately, not to compete with the chord you are playing now.
     private var historyStrip: some View {
         let events = model.progression.tail(8)
-        return HStack(spacing: 6) {
+        let numerals = model.numerals(for: events)
+        return HStack(alignment: .top, spacing: 6) {
             Spacer(minLength: 0)
-            ForEach(events) { event in
+            // TRIAL: the key and a numeral under each chord. Dim and small,
+            // because this is read after playing, not during.
+            if let keyLabel = model.keyLabel, !events.isEmpty {
+                Text(keyLabel)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.tertiary)
+                    .lineLimit(1)
+                    .padding(.top, 6)
+                    .padding(.trailing, 4)
+            }
+            ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
                 let inspected = model.inspecting?.id == event.id
                 let latest = event.id == events.last?.id && model.inspecting == nil
-                Button {
-                    model.inspect(event)
-                } label: {
-                    Text(event.chord.symbol(naming: .letters, in: model.key, unicode: true))
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(inspected ? Theme.panel
-                                         : (latest ? palette.chord : Theme.tertiary))
+                VStack(spacing: 2) {
+                    Button {
+                        model.inspect(event)
+                    } label: {
+                        Text(event.chord.symbol(naming: .letters, in: model.key, unicode: true))
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(inspected ? Theme.panel
+                                             : (latest ? palette.chord : Theme.tertiary))
+                            .lineLimit(1)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Capsule().fill(inspected ? palette.chord
+                                                       : Color.white.opacity(0.07)))
+                    }
+                    .buttonStyle(.plain)
+                    // A pointing hand, so the strip is discoverable without a label
+                    // saying "click me". `pointerStyle` would be the one line for
+                    // this and it is macOS 15 only.
+                    .onHover { inside in
+                        if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+                    }
+                    .help("Show this chord on the keyboard")
+                    // Always a line, even empty, so the strip is the same
+                    // height whether or not a key has been found.
+                    Text(numerals[index] ?? " ")
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.tertiary)
                         .lineLimit(1)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(Capsule().fill(inspected ? palette.chord
-                                                   : Color.white.opacity(0.07)))
                 }
-                .buttonStyle(.plain)
-                // A pointing hand, so the strip is discoverable without a label
-                // saying "click me". `pointerStyle` would be the one line for
-                // this and it is macOS 15 only.
-                .onHover { inside in
-                    if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
-                }
-                .help("Show this chord on the keyboard")
             }
             Spacer(minLength: 0)
         }
-        .frame(height: 24)
+        .frame(height: 38)
         .padding(.horizontal, 12)
     }
 

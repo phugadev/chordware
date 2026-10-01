@@ -96,6 +96,51 @@ func runAppTests(_ t: Harness) {
             t.check(model.key != nil, "has a key, for spelling")
             t.check(!model.progression.isEmpty, "has a history to show")
         }
+
+        // TRIAL: the key and Roman numerals in the history strip.
+        func strip(_ symbols: String, key: Key?) -> AppModel {
+            let model = AppModel()
+            model.key = key
+            for (index, symbol) in symbols.split(separator: " ").enumerated() {
+                model.progression.append(ChordParser.parse(String(symbol))!, atMs: index * 1000)
+            }
+            return model
+        }
+        let cMajor = Key(tonic: SpelledNote("C")!, mode: .major)
+
+        t.test("the strip shows no numerals and no key until one is found") {
+            let model = strip("Dm7 G7 Cmaj7", key: nil)
+            let events = model.progression.tail(8)
+            t.equal(model.numerals(for: events), [nil, nil, nil], "a blank line under each")
+            t.check(model.keyLabel == nil, "and no key at the head")
+        }
+
+        t.test("the strip numbers a ii-V-I in its key") {
+            let model = strip("Dm7 G7 Cmaj7", key: cMajor)
+            t.equal(model.numerals(for: model.progression.tail(8)), ["ii7", "V7", "Imaj7"],
+                    "ii7 V7 Imaj7")
+            t.equal(model.keyLabel, "C maj", "with the key at the head")
+        }
+
+        t.test("a secondary dominant is read from what follows it") {
+            let model = strip("A7 Dm7", key: cMajor)
+            t.equal(model.numerals(for: model.progression.tail(8)).first ?? nil, "V7/ii",
+                    "A7 before Dm7 is V7/ii")
+        }
+
+        t.test("a borrowed chord is written with a real flat") {
+            let model = strip("Ab Bb7 Cmaj7", key: cMajor)
+            t.equal(model.numerals(for: model.progression.tail(8)),
+                    ["\u{266D}VI", "\u{266D}VII7", "Imaj7"], "\u{266D}VI \u{266D}VII7, not bVI bVII7")
+        }
+
+        t.test("a change of key relabels the whole strip") {
+            let model = strip("Dm7 G7 Cmaj7", key: cMajor)
+            model.key = Key(tonic: SpelledNote("G")!, mode: .major)
+            t.equal(model.numerals(for: model.progression.tail(8)), ["v7", "V7/IV", "IVmaj7"],
+                    "the same chords read in G: G7 into C is V7/IV there")
+            t.equal(model.keyLabel, "G maj", "and the key at the head follows")
+        }
     }
 }
 
