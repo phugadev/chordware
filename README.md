@@ -19,6 +19,8 @@ Free, open source, and nothing leaves your Mac.
 - **White keys in violet, black keys in pink**, so a sharp is never mistaken for
   the key beside it.
 - **The last eight chords** along the foot. Click one to see it again.
+- **The key and a Roman numeral under each of those chords**, once Chordware
+  has heard enough to tell the key. *(Trial.)*
 
 It also records everything you play from the moment it starts, so an idea you
 stumble into is never lost. Save it as a MIDI file whenever you like.

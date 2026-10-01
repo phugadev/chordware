@@ -115,6 +115,38 @@ public final class AppModel {
         inspecting = inspecting?.id == event.id ? nil : event
     }
 
+    /// TRIAL. The key, written at the head of the history strip.
+    ///
+    /// The strip and not the readout: a key and a numeral up beside the chord
+    /// were taken out because nobody reads them while playing. The strip is
+    /// what you read after, which is when "what did I just play" gets asked.
+    /// Nil until the estimator commits, and then nothing is shown at all.
+    public var keyLabel: String? { key?.shortName(naming: naming) }
+
+    /// TRIAL. A Roman numeral for each chord in the strip, nil with no key.
+    ///
+    /// Read as a run rather than chord by chord, because a secondary dominant
+    /// is only one once you know what follows: A7 is V7/ii when Dm7 comes
+    /// next. So the newest chord's numeral can change when the next arrives,
+    /// which is right. All of them follow the current key, as the strip's
+    /// spellings already do, so a change of key relabels the whole strip.
+    public func numerals(for events: [ChordEvent]) -> [String?] {
+        guard let key else { return events.map { _ in nil } }
+        return RomanNumeralAnalyzer.analyze(events.map(\.chord), in: key)
+            .map { Self.unicodeAccidentals($0.symbol) }
+    }
+
+    /// `bVII7` as `♭VII7`, to match the chord names above it.
+    ///
+    /// Only an accidental in front of a numeral, and not the b in `subV7`.
+    private static func unicodeAccidentals(_ numeral: String) -> String {
+        numeral
+            .replacingOccurrences(of: "(?<![a-z])b(?=[IViv])", with: "\u{266D}",
+                                  options: .regularExpression)
+            .replacingOccurrences(of: "(?<![a-z])#(?=[IViv])", with: "\u{266F}",
+                                  options: .regularExpression)
+    }
+
     /// How note and chord names are written. Letters, always -- the menu that
     /// offered solfège and scale degrees was two more things to get wrong.
     public var naming: NoteNaming { .letters }
