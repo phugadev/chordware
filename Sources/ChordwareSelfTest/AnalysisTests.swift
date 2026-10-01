@@ -99,6 +99,21 @@ func runAnalysisTests(_ t: Harness) {
             t.equal(RomanNumeralAnalyzer.analyze(chord("A7"), in: c).symbol, "V7/ii", "A7 in C")
         }
 
+        t.test("a secondary dominant has to go where it points") {
+            // G and G7 in D minor, going to F: borrowed IV, not V/VII on the
+            // way to a C that never comes.
+            let dm = Key(tonic: SpelledNote("D")!, mode: .minor)
+            t.equal(RomanNumeralAnalyzer.analyze(chords(["Dm", "G", "G7", "F"]), in: dm).map(\.symbol),
+                    ["i", "IV", "IV7", "III"], "G G7 F in D minor")
+            // When it does go there, both the triad and its seventh tonicise.
+            t.equal(RomanNumeralAnalyzer.analyze(chords(["Dm", "G", "G7", "C"]), in: dm).map(\.symbol),
+                    ["i", "V/VII", "V7/VII", "VII"], "G G7 C in D minor")
+            t.equal(RomanNumeralAnalyzer.analyze(chords(["C", "A7", "F"]), in: c)[1].symbol,
+                    "VI7", "A7 into F is not V7/ii")
+            t.equal(RomanNumeralAnalyzer.analyze(chords(["C", "A7", "Dm7"]), in: c)[1].symbol,
+                    "V7/ii", "A7 into Dm7 is")
+        }
+
         t.test("chromatic staples are named the way charts name them") {
             // Db7 resolving to C is the tritone substitute for G7.
             t.equal(RomanNumeralAnalyzer.analyze(chord("Db7"), in: c).symbol, "subV7/I",
