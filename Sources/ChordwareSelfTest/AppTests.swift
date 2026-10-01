@@ -63,6 +63,22 @@ func runAppTests(_ t: Harness) {
             }
         }
 
+        t.test("the line under the chord names only the keys that are down") {
+            let model = AppModel()
+            model.readingDelay = 0
+            // C E A was read as C6 and captioned C E G A, with no G held.
+            let am = MIDINote.parseList("C4 E4 A4")!
+            model.present(candidates: ChordDetector.detect(midiNotes: am), heldNotes: am, atMs: 0)
+            t.equal(model.displaySymbol, "Am/C", "named as the triad it is")
+            t.equal(model.displayDetail, "A C E  \u{00B7}  La Do Mi", "and only its three notes")
+
+            // A real chord with a tone left out still lists only what is held.
+            let c7 = MIDINote.parseList("C4 E4 Bb4")!
+            model.present(candidates: ChordDetector.detect(midiNotes: c7), heldNotes: c7, atMs: 1000)
+            t.equal(model.displaySymbol, "C7", "C7 without its fifth")
+            t.equal(model.displayDetail, "C E B\u{266D}  \u{00B7}  Do Mi Si\u{266D}", "no G in the caption")
+        }
+
         t.test("moving a voicing up or down an octave does not rename it") {
             guard let base = MIDINote.parseList("D4 F4 A4 C5") else {
                 t.check(false, "could not parse"); return
