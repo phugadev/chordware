@@ -64,6 +64,16 @@ func runChordTests(_ t: Harness) {
             t.equal(ChordDetector.best(midiNotes: m("G3 C4 E4"))?.symbol, "C/G", "second inversion")
             t.equal(ChordDetector.best(midiNotes: m("E3 G3 Bb3 C4"))?.symbol, "C7/E", "seventh, third in bass")
 
+            // A minor triad over its third is not a sixth chord missing its
+            // fifth. Every one of these used to read as X6 on the bass note.
+            t.equal(ChordDetector.best(midiNotes: m("C4 E4 A4"))?.symbol, "Am/C", "minor, first inversion")
+            t.equal(ChordDetector.best(midiNotes: m("F3 A3 D4"))?.symbol, "Dm/F", "and on D")
+            t.equal(ChordDetector.best(midiNotes: m("D4 F4 B4"))?.symbol, "Bdim/D", "diminished, first inversion")
+            // But only a whole triad wins that way: these are complete readings
+            // of something else and must keep their usual names.
+            t.equal(ChordDetector.best(midiNotes: m("C4 D4 E4 A4"))?.symbol, "C6/9", "not D7sus2/C")
+            t.equal(ChordDetector.best(midiNotes: m("C4 F4 Bb4"))?.symbol, "C7sus4", "not Fsus4/C")
+
             let firstInv = ChordDetector.best(midiNotes: m("E3 G3 C4"))
             t.equal(firstInv?.chord.inversion, 1, "inversion index")
             t.equal(firstInv?.chord.fullName, "C major, first inversion", "spoken name")

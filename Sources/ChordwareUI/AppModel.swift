@@ -147,8 +147,8 @@ public final class AppModel {
         // one-to-one with the solfège beside them, which is the whole point of
         // having both: C is Do, E is Mi, Bb is Sib.
         if let chord = shownChord {
-            let letters = chord.spelledTones
-                .map { naming.name($0.note, in: key, unicode: true) }.joined(separator: " ")
+            let letters = soundingTones(of: chord)
+                .map { naming.name($0, in: key, unicode: true) }.joined(separator: " ")
             return letters + suffix
         }
         switch readoutNotes.count {
@@ -168,6 +168,19 @@ public final class AppModel {
         }
     }
 
+    /// The chord's tones that are actually down, in chord order.
+    ///
+    /// Not every tone of the chord: a C7 played without its fifth is C E Bb
+    /// under your hands, and listing a G there names a key nobody pressed. An
+    /// event from the history recorded without notes has nothing to check
+    /// against, so it keeps them all.
+    private func soundingTones(of chord: Chord) -> [SpelledNote] {
+        let held = Set(readoutNotes.map { PitchClass($0) })
+        return chord.spelledTones
+            .filter { held.isEmpty || held.contains($0.note.pitchClass) }
+            .map(\.note)
+    }
+
     /// The same notes again in fixed do, so the two naming systems can be
     /// learned against each other rather than one at a time.
     ///
@@ -179,8 +192,8 @@ public final class AppModel {
     private var solfege: String {
         let syllables: [String]
         if let chord = shownChord {
-            syllables = chord.spelledTones.map {
-                NoteNaming.fixedDo.name($0.note, in: key, unicode: true)
+            syllables = soundingTones(of: chord).map {
+                NoteNaming.fixedDo.name($0, in: key, unicode: true)
             }
         } else {
             syllables = readoutNotes.sorted().map {

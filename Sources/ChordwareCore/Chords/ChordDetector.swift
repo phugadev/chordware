@@ -11,16 +11,28 @@ public struct ChordCandidate: Sendable, Hashable {
     /// Sounded pitch classes the template does not account for.
     public let extras: [PitchClass]
 
+    /// A bass note that is not a tone of the chord, as in C/F#. Not counted in
+    /// `extras`, which is why it needs saying separately.
+    public let hasForeignBass: Bool
+
     public var isExact: Bool { missing.isEmpty && extras.isEmpty }
+    /// A whole major, minor, diminished or augmented triad, every note of it
+    /// played and nothing else. Not sus: C F Bb is C7sus4 to most players
+    /// before it is Fsus4/C.
+    public var isCompleteTriad: Bool {
+        isExact && !hasForeignBass && ["maj", "min", "dim", "aug"].contains(chord.quality.id)
+    }
     public var symbol: String { chord.symbol() }
 
     public init(chord: Chord, confidence: Double, score: Double,
-                missing: [Interval] = [], extras: [PitchClass] = []) {
+                missing: [Interval] = [], extras: [PitchClass] = [],
+                hasForeignBass: Bool = false) {
         self.chord = chord
         self.confidence = confidence
         self.score = score
         self.missing = missing
         self.extras = extras
+        self.hasForeignBass = hasForeignBass
     }
 }
 
@@ -109,9 +121,19 @@ public enum ChordDetector {
         // which made C-Eb-G-A read as Am7b5/C even with C in the bass.
         // Normalising against what each quality could have scored removes that
         // bias, and makes the confidence shown in the UI agree with the order.
+        //
+        // A complete triad goes first, though. C E A is Am over its third with
+        // nothing missing, and C6 only if you imagine a G nobody played -- but
+        // C6 has its root in the bass, and that bonus outweighed the missing
+        // fifth, so every minor triad in first inversion read as a sixth chord
+        // on its bass note. Triads only: letting any complete reading win
+        // turned C D E A, a plain C6/9, into D7sus2/C.
         var seen = Set<String>()
         return candidates
-            .sorted { ($0.confidence, $0.score) > ($1.confidence, $1.score) }
+            .sorted {
+                if $0.isCompleteTriad != $1.isCompleteTriad { return $0.isCompleteTriad }
+                return ($0.confidence, $0.score) > ($1.confidence, $1.score)
+            }
             .filter { $0.confidence >= options.minConfidence }
             .filter { seen.insert($0.chord.symbol()).inserted }
             .prefix(options.maxCandidates)
@@ -200,7 +222,8 @@ public enum ChordDetector {
             confidence: confidence,
             score: score,
             missing: missing,
-            extras: Array(extras).sorted()
+            extras: Array(extras).sorted(),
+            hasForeignBass: bassIsForeign
         )
     }
 
